@@ -53,7 +53,7 @@ function hashStep(h: number, ...vals: number[]): number {
   return out
 }
 
-const POWER_CODE = { small: 1, big: 2, ball: 3 } as const
+const POWER_CODE = { small: 1, big: 2, ball: 3, bolt: 4 } as const
 
 export function snapshot(s: GameState, frames: number, traceHash: number): Snapshot {
   return {

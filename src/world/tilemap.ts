@@ -9,12 +9,12 @@ export class LevelParseError extends Error {
 }
 
 export const TILE_CHARS = [
-  '.', '#', 'B', 'b', '?', '@', '*', 'H', 'p', '|', 'o', '^', '~', 'S',
+  '.', '#', 'B', 'b', '?', '@', '*', 'H', 'p', '|', 'o', '^', '~', 'S', 'E',
 ] as const
 
-const SOLID = new Set<Tile>(['#', 'B', 'b', '?', '@', '*', 'H', 'p', '|', 'S'])
+const SOLID = new Set<Tile>(['#', 'B', 'b', '?', '@', '*', 'E', 'H', 'p', '|', 'S'])
 const BRICKS = new Set<Tile>(['B', 'b'])
-const QUESTIONS = new Set<Tile>(['?', '@', '*'])
+const QUESTIONS = new Set<Tile>(['?', '@', '*', 'E'])
 /** 닿으면 피격. 통과는 된다 */
 const SPIKES = new Set<Tile>(['^'])
 /** 닿으면 즉사. 통과는 된다 */

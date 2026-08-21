@@ -1,5 +1,6 @@
 import type {
   Ball,
+  Bolt,
   Enemy,
   EnemyKind,
   Item,
@@ -8,8 +9,9 @@ import type {
   Player,
   TileGrid,
 } from '../types'
-import { TILE, VIEW_W } from '../engine/tuning'
+import { TILE, TUNING, VIEW_W } from '../engine/tuning'
 import { applyGravity, moveX, moveY } from '../engine/physics'
+import { solidAt } from './tilemap'
 
 export const ENEMY_SIZE: Record<EnemyKind, { w: number; h: number }> = {
   broccoli: { w: 12, h: 12 },
@@ -233,13 +235,55 @@ export function updateBall(b: Ball, grid: TileGrid, dt: number): void {
   }
 }
 
+/**
+ * 전기 빔을 만든다. 투사체가 아니라 발사 순간 벽까지 뻗는 사각형이다.
+ *
+ * 사거리는 타일을 훑어 첫 solid 앞에서 끊는다. 이렇게 하지 않으면 벽 너머
+ * 적까지 맞아서 지형이 의미가 없어진다.
+ */
+export function createBolt(p: Player, grid: TileGrid): Bolt {
+  const h = TUNING.boltHeight
+  const cy = p.y + p.h / 2 - h / 2
+  const max = TUNING.boltLenTiles * TILE
+
+  // 눈높이 두 줄을 검사해 어느 한 쪽이라도 막히면 거기서 끊는다
+  const rows = [Math.floor(cy / TILE), Math.floor((cy + h - 1) / TILE)]
+  const originX = p.facing === 1 ? p.x + p.w : p.x
+  let len = 0
+  while (len < max) {
+    const probe = p.facing === 1 ? originX + len : originX - len - 1
+    const tx = Math.floor(probe / TILE)
+    if (rows.some((ty) => solidAt(grid, tx, ty))) break
+    len += 4
+  }
+  len = Math.max(TILE, Math.min(max, len))
+
+  return {
+    x: p.facing === 1 ? originX : originX - len,
+    y: cy,
+    vx: 0,
+    vy: 0,
+    w: len,
+    h,
+    onGround: false,
+    dir: p.facing,
+    ms: TUNING.boltMs,
+    totalMs: TUNING.boltMs,
+    hit: [],
+  }
+}
+
+export function updateBolt(b: Bolt, dt: number): void {
+  b.ms -= dt * 1000
+}
+
 export function createItem(
-  kind: 'peach' | 'ball',
+  kind: 'peach' | 'ball' | 'bolt',
   tx: number,
   ty: number,
   dir: 1 | -1,
 ): Item {
-  const w = kind === 'peach' ? 14 : 12
+  const w = kind === 'peach' ? 14 : kind === 'bolt' ? 14 : 12
   const h = w
   return {
     x: tx * TILE + (TILE - w) / 2,

@@ -3,6 +3,7 @@ import { TILE, VIEW_H, VIEW_W } from '../engine/tuning'
 import { tileAt } from '../world/tilemap'
 import { BUTTON_ALPHA, buttonRects } from '../ui/controls'
 import { FALLBACK_COLOR, frame, type LoadedAtlas } from './atlas'
+import { drawBolts, drawFlash } from './bolt'
 
 const TILE_FRAME: Partial<Record<Tile, string>> = {
   '#': 'ground',
@@ -17,6 +18,7 @@ const TILE_FRAME: Partial<Record<Tile, string>> = {
   '^': 'spike',
   '~': 'lava',
   S: 'spring',
+  E: 'boltBlock',
 }
 
 /** 테마별 하늘 그라디언트와 타일 색조 */
@@ -182,7 +184,9 @@ export function drawWorld(
   // 아이템
   for (const it of s.items) {
     if (it.taken) continue
-    draw(ctx, atlas, it.kind === 'peach' ? 'peach' : 'ball0', it.x, it.y, it.w, it.h)
+    const itemFrame =
+      it.kind === 'peach' ? 'peach' : it.kind === 'bolt' ? 'boltItem' : 'ball0'
+    draw(ctx, atlas, itemFrame, it.x, it.y, it.w, it.h)
   }
 
   // 이동발판
@@ -204,16 +208,48 @@ export function drawWorld(
     draw(ctx, atlas, `ball${Math.floor(tick / 4) % 4}`, b.x, b.y, b.w, b.h)
   }
 
+  // 전기 빔 — 플레이어보다 먼저 그려 몸이 빔 위에 오게 한다
+  drawBolts(ctx, s, tick)
+
   // 플레이어 — 무적 중에는 깜빡인다
   const blink = s.player.invulnMs > 0 && Math.floor(s.player.invulnMs / 80) % 2 === 0
-  if (!blink) drawHero(ctx, atlas, s.player)
+  if (!blink) {
+    drawHero(ctx, atlas, s.player)
+    // 전기를 든 동안 몸 주변에 스파크가 튄다
+    if (s.player.power === 'bolt') drawCharge(ctx, s.player, tick)
+  }
 
+  ctx.restore()
+
+  // 화면 번쩍임은 카메라 변환 밖에서
+  drawFlash(ctx, s)
+}
+
+/** 전기를 든 동안 몸 주변에 튀는 스파크 */
+function drawCharge(ctx: CanvasRenderingContext2D, p: Player, tick: number): void {
+  ctx.save()
+  ctx.fillStyle = 'rgba(255,240,150,.9)'
+  for (let k = 0; k < 4; k++) {
+    const a = ((tick * 0.14 + k * 1.57) % (Math.PI * 2))
+    const r = p.w * 0.7 + Math.sin(tick * 0.2 + k) * 2
+    ctx.fillRect(
+      Math.round(p.x + p.w / 2 + Math.cos(a) * r),
+      Math.round(p.y + p.h / 2 + Math.sin(a) * r * 0.8),
+      2,
+      2,
+    )
+  }
   ctx.restore()
 }
 
 export function drawControls(ctx: CanvasRenderingContext2D, power: PowerState): void {
   const rects = buttonRects(power)
-  const labels: Record<string, string> = { left: '◀', right: '▶', jump: '⬆', fire: '⚽' }
+  const labels: Record<string, string> = {
+    left: '◀',
+    right: '▶',
+    jump: '⬆',
+    fire: power === 'bolt' ? '⚡' : '⚽',
+  }
 
   ctx.save()
   for (const [id, r] of Object.entries(rects)) {

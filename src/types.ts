@@ -52,6 +52,7 @@ export type Tile =
   | '^' // 가시 — 닿으면 피격, 밟기 불가. solid 아님
   | '~' // 용암/독물 — 닿으면 즉사. solid 아님
   | 'S' // 점프대 — 위에서 밟으면 크게 튕긴다. solid
+  | 'E' // ? 블록 → 전기 (100만볼트)
 
 export type TileGrid = {
   w: number
@@ -67,8 +68,12 @@ export type TileGrid = {
 /** 스테이지 배경·타일 색 묶음 */
 export type Theme = 'day' | 'underground' | 'night' | 'castle'
 
-/** small → big → ball. 'ball'은 "큰 상태 + 축구공 보유"를 뜻한다. */
-export type PowerState = 'small' | 'big' | 'ball'
+/**
+ * small → big → (ball | bolt).
+ * 'ball' 은 축구공, 'bolt' 는 전기를 든 상태. 둘은 같은 등급이고
+ * 피격 시 둘 다 big 으로 한 단계 내려간다.
+ */
+export type PowerState = 'small' | 'big' | 'ball' | 'bolt'
 export type Mode = 'practice' | 'challenge'
 export type Scene = 'title' | 'select' | 'playing' | 'dead' | 'clear' | 'gameover'
 
@@ -114,10 +119,24 @@ export type Enemy = Body & {
 export type Coin = Rect & { taken: boolean }
 
 /** ? 블록에서 나와 굴러가는 아이템 */
-export type Item = Body & { kind: 'peach' | 'ball'; taken: boolean }
+export type Item = Body & { kind: 'peach' | 'ball' | 'bolt'; taken: boolean }
 
 /** 발사된 축구공 */
 export type Ball = Body & { bounces: number; alive: boolean }
+
+/**
+ * 전기 빔. 투사체가 아니라 발사 순간 일직선으로 뻗는 사각형이다.
+ * 짧게 살아 있는 동안 겹친 적을 한 번에 관통해 때린다.
+ */
+export type Bolt = Body & {
+  dir: 1 | -1
+  /** 남은 지속 시간(ms) */
+  ms: number
+  /** 전체 지속 시간 — 연출 진행도 계산용 */
+  totalMs: number
+  /** 이미 때린 적을 두 번 때리지 않게 기억한다 */
+  hit: number[]
+}
 
 export type Platform = Body & {
   axis: 'x' | 'y'
@@ -177,6 +196,7 @@ export type GameState = {
   coins: Coin[]
   items: Item[]
   balls: Ball[]
+  bolts: Bolt[]
   platforms: Platform[]
   bumps: Bump[]
   camera: { x: number; y: number }
@@ -192,5 +212,9 @@ export type GameState = {
   checkpointX: number
   /** 씬 전환 연출용 잔여 시간(ms) */
   sceneMs: number
+  /** 화면 번쩍임 잔여 시간(ms). 전기 발사 연출 */
+  flashMs: number
+  /** 전기 재발사까지 남은 시간(ms) */
+  boltCooldownMs: number
   muted: boolean
 }

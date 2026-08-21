@@ -107,6 +107,21 @@ export const SFX: Record<string, SfxSpec> = {
   // 보스 피격 — 묵직한 타격
   bossHit: { wave: 'noise', notes: [1], noteMs: 130, gain: 0.3, noise: 'thud' },
 
+  /**
+   * 전기 발사 — 100만볼트.
+   * 지지직거리는 노이즈 크래시 + 높은 데서 급하게 떨어지는 톱니를 겹친다.
+   * 한 SFX 에 파형을 섞을 수 없으므로 bolt(노이즈)와 boltTone(톱니)을 같이 낸다.
+   */
+  bolt: { wave: 'noise', notes: [1, 1], noteMs: 70, gain: 0.32, noise: 'crash' },
+  boltTone: {
+    wave: 'sawtooth',
+    notes: [N.E6, N.C6, N.G5, N.C5],
+    noteMs: 45,
+    gain: 0.26,
+    slide: true,
+    vibrato: 30,
+  },
+
   // 보스 격파 — 길게 무너지는 소리
   bossDown: {
     wave: 'sawtooth',

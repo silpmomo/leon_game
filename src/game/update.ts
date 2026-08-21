@@ -7,8 +7,10 @@ import { createPlayer, updatePlayer } from '../world/player'
 import {
   activateVisible,
   createBall,
+  createBolt,
   spawnFromLevel,
   updateBall,
+  updateBolt,
   updateEnemy,
   updateItem,
   updatePlatform,
@@ -16,6 +18,7 @@ import {
 import {
   hitBlock,
   resolveBalls,
+  resolveBolts,
   resolveCoins,
   resolveEnemies,
   resolveHazards,
@@ -39,6 +42,7 @@ export function newGameState(level: LevelData, mode: Mode): GameState {
     coins,
     items: [],
     balls: [],
+    bolts: [],
     platforms,
     bumps: [],
     camera: { x: 0, y: 0 },
@@ -50,6 +54,8 @@ export function newGameState(level: LevelData, mode: Mode): GameState {
     combo: 0,
     checkpointX: level.spawn.x,
     sceneMs: 0,
+    flashMs: 0,
+    boltCooldownMs: 0,
     muted: false,
   }
 }
@@ -134,21 +140,33 @@ export function updateFrame(s: GameState, input: InputState, dt: number): RuleEv
     events.push('spring')
   }
 
-  // ── 4. 축구공 발사
-  if (effective.firePressed && s.player.power === 'ball' && aliveBalls(s) < MAX_BALLS) {
-    s.balls.push(createBall(s.player))
-    events.push('fire')
+  // ── 4. 무기 발사
+  if (s.boltCooldownMs > 0) s.boltCooldownMs = Math.max(0, s.boltCooldownMs - ms)
+  if (s.flashMs > 0) s.flashMs = Math.max(0, s.flashMs - ms)
+
+  if (effective.firePressed) {
+    if (s.player.power === 'ball' && aliveBalls(s) < MAX_BALLS) {
+      s.balls.push(createBall(s.player))
+      events.push('fire')
+    } else if (s.player.power === 'bolt' && s.boltCooldownMs === 0) {
+      s.bolts.push(createBolt(s.player, s.grid))
+      s.boltCooldownMs = TUNING.boltCooldownMs
+      s.flashMs = TUNING.flashMs
+      events.push('bolt')
+    }
   }
 
   // ── 5. 엔티티
   for (const e of s.enemies) updateEnemy(e, s.grid, s.player, dt)
   for (const it of s.items) updateItem(it, s.grid, dt)
   for (const b of s.balls) updateBall(b, s.grid, dt)
+  for (const b of s.bolts) updateBolt(b, dt)
 
   // ── 6. 규칙
   events.push(...resolveCoins(s))
   events.push(...resolveItems(s))
   events.push(...resolveBalls(s))
+  events.push(...resolveBolts(s))
   events.push(...resolveEnemies(s, effective.jump))
   events.push(...resolveHazards(s))
 
@@ -181,6 +199,7 @@ export function updateFrame(s: GameState, input: InputState, dt: number): RuleEv
   s.coins = s.coins.filter((c) => !c.taken)
   s.items = s.items.filter((it) => !it.taken)
   s.balls = s.balls.filter((b) => b.alive)
+  s.bolts = s.bolts.filter((b) => b.ms > 0)
 
   return events
 }

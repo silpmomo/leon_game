@@ -53,6 +53,11 @@ const SFX = {
   extraLife: { wave: 'square', notes: [N.C5, N.E5, N.G5, N.C6], noteMs: 75, gain: 0.24 },
   goal: { wave: 'square', notes: [N.C5, N.E5, N.G5, N.C6, 0, N.G5, N.C6, 0, N.E6, N.C6, N.G5, N.C6], noteMs: 135, gain: 0.24 },
   select: { wave: 'square', notes: [N.G4, N.C5], noteMs: 55, gain: 0.22 },
+  spring: { wave: 'square', notes: [N.C4, N.G4, N.E5, N.C6], noteMs: 45, gain: 0.24, slide: true },
+  bossHit: { wave: 'noise', notes: [1], noteMs: 130, gain: 0.3, noise: 'thud' },
+  bossDown: { wave: 'sawtooth', notes: [N.G4, N.E4, N.C4, N.G3, N.E3, N.C3, N.G2], noteMs: 150, gain: 0.28, slide: true },
+  bolt: { wave: 'noise', notes: [1, 1], noteMs: 70, gain: 0.32, noise: 'crash' },
+  boltTone: { wave: 'sawtooth', notes: [N.E6, N.C6, N.G5, N.C5], noteMs: 45, gain: 0.26, slide: true, vibrato: 30 },
 }
 
 // ── 신호 생성 ────────────────────────────────────────────────
@@ -181,13 +186,17 @@ const c1 = writeWav(join(OUT, 'bgm.wav'), bgm)
 console.log(`bgm.wav   ${(bgm.length / SR).toFixed(2)}초 (루프 ${loopS.toFixed(2)}초 x2), 클리핑 ${c1}샘플`)
 
 // 효과음 전부 순서대로
-const order = ['select', 'jump', 'coin', 'stomp', 'bump', 'brick', 'powerup', 'fire', 'hurt', 'extraLife', 'die', 'goal']
-const sfx = new Float32Array(Math.ceil(30 * SR))
+const order = ['select', 'jump', 'coin', 'stomp', 'bump', 'brick', 'powerup', 'spring',
+  'fire', 'bolt+boltTone', 'bossHit', 'hurt', 'extraLife', 'die', 'bossDown', 'goal']
+const sfx = new Float32Array(Math.ceil(45 * SR))
 let cursor = 0.2
 const marks = []
 for (const k of order) {
   marks.push(`${cursor.toFixed(2)}s ${k}`)
-  const dur = renderSfx(sfx, SFX[k], cursor)
+  // 전기는 노이즈와 톤을 같은 시점에 겹쳐 낸다 (게임과 동일)
+  const dur = k.includes('+')
+    ? Math.max(...k.split('+').map((n) => renderSfx(sfx, SFX[n], cursor)))
+    : renderSfx(sfx, SFX[k], cursor)
   cursor += dur + 0.45
 }
 const trimmed = sfx.slice(0, Math.ceil((cursor + 0.3) * SR))

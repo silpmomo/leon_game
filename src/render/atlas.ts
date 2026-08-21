@@ -58,6 +58,9 @@ export const REQUIRED_FRAMES = [
   'flyer1',
   'boss0',
   'boss1',
+  'boltItem',
+  'boltBlock',
+  'boltBlockUsed',
 ] as const
 
 export const FALLBACK_COLOR: Record<string, string> = {
@@ -110,6 +113,9 @@ export const FALLBACK_COLOR: Record<string, string> = {
   flyer1: '#b95cc0',
   boss0: '#3f7a2c',
   boss1: '#3f7a2c',
+  boltItem: '#ffd733',
+  boltBlock: '#6b3fa0',
+  boltBlockUsed: '#4a2a72',
 }
 
 export function frame(data: AtlasData, name: string): FrameRect | null {

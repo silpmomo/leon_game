@@ -42,6 +42,7 @@ function makeState(): GameState {
     coins,
     items: [],
     balls: [],
+    bolts: [],
     platforms: [],
     bumps: [],
     camera: { x: 0, y: 0 },
@@ -53,6 +54,8 @@ function makeState(): GameState {
     combo: 0,
     checkpointX: 1,
     sceneMs: 0,
+    flashMs: 0,
+    boltCooldownMs: 0,
     muted: false,
   }
 }

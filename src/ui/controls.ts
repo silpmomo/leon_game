@@ -25,8 +25,9 @@ export function buttonRects(power: PowerState): Record<ButtonId, Rect | null> {
     left: square(EDGE, MOVE_W),
     right: square(EDGE + MOVE_W + GAP, MOVE_W),
     jump: square(jumpX, JUMP_W),
-    // 발사 버튼은 축구공을 가진 동안만 존재한다 (스펙 §5.3)
-    fire: power === 'ball' ? square(jumpX - GAP - FIRE_W, FIRE_W) : null,
+    // 발사 버튼은 무기를 가진 동안만 존재한다 (축구공 또는 전기)
+    fire:
+      power === 'ball' || power === 'bolt' ? square(jumpX - GAP - FIRE_W, FIRE_W) : null,
   }
 }
 

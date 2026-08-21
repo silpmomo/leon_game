@@ -30,6 +30,7 @@ export type RuleEvent =
   | 'spring'
   | 'bossHit'
   | 'bossDown'
+  | 'bolt'
 
 /** 위에서 밟아 없앨 수 있는 적. 악어는 가시가 있고 보스는 너무 크다 */
 const STOMPABLE = new Set<EnemyKind>(['broccoli', 'soup', 'flyer'])
@@ -47,7 +48,8 @@ function squash(e: Enemy): void {
 }
 
 function demote(power: PowerState): PowerState | null {
-  if (power === 'ball') return 'big'
+  // ball 과 bolt 는 같은 등급이다. 둘 다 big 으로 한 단계 내려간다.
+  if (power === 'ball' || power === 'bolt') return 'big'
   if (power === 'big') return 'small'
   return null // small → 사망
 }
@@ -122,8 +124,9 @@ export function resolveItems(s: GameState): RuleEvent[] {
     if (it.kind === 'peach') {
       if (s.player.power === 'small') resizePlayer(s.player, 'big')
     } else {
-      // 축구공: small은 big까지만, big 이상은 ball
-      resizePlayer(s.player, s.player.power === 'small' ? 'big' : 'ball')
+      // 무기: small 은 먼저 커지기만 하고, big 이상이면 그 무기를 든다
+      const armed = it.kind === 'bolt' ? 'bolt' : 'ball'
+      resizePlayer(s.player, s.player.power === 'small' ? 'big' : armed)
     }
     events.push('powerup')
   }
@@ -149,6 +152,37 @@ export function resolveBalls(s: GameState): RuleEvent[] {
         s.score += e.kind === 'boss' ? SCORE.bossKill : stompScore(0)
       }
       break
+    }
+  }
+  return events
+}
+
+/**
+ * 전기 빔 판정.
+ *
+ * 빔은 관통한다 — 일직선상의 적을 한 번에 모두 때린다. 같은 적을 프레임마다
+ * 다시 때리지 않도록 이미 맞은 적의 인덱스를 기억한다.
+ */
+export function resolveBolts(s: GameState): RuleEvent[] {
+  const events: RuleEvent[] = []
+  for (const b of s.bolts) {
+    if (b.ms <= 0) continue
+    for (let i = 0; i < s.enemies.length; i++) {
+      const e = s.enemies[i]!
+      if (!e.alive || !e.active || e.squashMs > 0) continue
+      if (b.hit.includes(i)) continue
+      if (!overlaps(b, e)) continue
+
+      b.hit.push(i)
+      e.hp -= TUNING.boltDamage
+      if (e.kind === 'boss') {
+        e.hitCooldownMs = ENEMY_TUNING.bossHitCooldownMs
+        events.push(e.hp <= 0 ? 'bossDown' : 'bossHit')
+      }
+      if (e.hp <= 0) {
+        e.alive = false
+        s.score += e.kind === 'boss' ? SCORE.bossKill : stompScore(0)
+      }
     }
   }
   return events
@@ -195,6 +229,9 @@ export function hitBlock(s: GameState, tx: number, ty: number): RuleEvent[] {
       events.push('powerup')
     } else if (t === '*') {
       s.items.push(createItem('ball', tx, ty - 1, 1))
+      events.push('powerup')
+    } else if (t === 'E') {
+      s.items.push(createItem('bolt', tx, ty - 1, 1))
       events.push('powerup')
     }
     return events

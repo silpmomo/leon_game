@@ -32,6 +32,16 @@ export const TUNING = {
   invulnMs: 1500,
   /** 점프대 튕김 속도. 최고 점프보다 확실히 높다 */
   springVel: -520,
+
+  /** 전기 빔 — 100만볼트 */
+  boltLenTiles: 7,
+  boltMs: 150,
+  boltCooldownMs: 650,
+  /** 한 방에 주는 피해. 악어(hp2)를 한 번에 없앤다 */
+  boltDamage: 2,
+  boltHeight: 10,
+  /** 발사 시 화면이 번쩍이는 시간 */
+  flashMs: 90,
   deathFallMargin: 32, // px — 레벨 바닥 아래 이 거리를 넘으면 낙하사
 } as const
 

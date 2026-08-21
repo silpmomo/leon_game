@@ -240,7 +240,11 @@ const loop = createLoop({
 
     input.beginFrame()
     const events = state.scene === 'playing' ? updateFrame(state, input.state, dt) : []
-    for (const e of events) audio.play(e)
+    for (const e of events) {
+      audio.play(e)
+      // 전기는 노이즈와 톤을 겹쳐야 100만볼트처럼 들린다
+      if (e === 'bolt') audio.play('boltTone')
+    }
 
     const wasClear = state.scene === 'clear'
     advanceScene(state, events, dt)

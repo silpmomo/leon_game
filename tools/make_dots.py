@@ -608,6 +608,58 @@ def boss(mouth_open):
     )
 
 
+# ── 전기 아이템 · 전기 블록 ───────────────────────────────────
+BOLT_PAL = [
+    '#00000000',  # 0
+    '#ffd733',    # 1 번개 노랑
+    '#ffffff',    # 2 번개 흰빛
+    '#c98f00',    # 3 번개 테두리
+    '#6b3fa0',    # 4 배지 보라
+    '#4a2a72',    # 5 배지 보라 그늘
+    '#b9a0e0',    # 6 배지 하이라이트
+]
+bolt_item = rows(
+    14,
+    '00044444444000',
+    '00444444444400',
+    '04455555554440',
+    '04453311334440',
+    '44531112213444',
+    '44531122213444',
+    '44553122133444',
+    '44451221333444',
+    '44451122133444',
+    '04452211334440',
+    '04455211554440',
+    '00444521144400',
+    '00044455444000',
+    '00004444440000',
+)
+
+
+def bolt_block(lit):
+    """전기 블록. lit 이면 번개가 밝게 빛난다.
+
+    안쪽 14칸에 번개 지그재그를 그린다. 각 행은 (앞 여백, 번개 폭) 으로 적고
+    나머지를 채워 폭 14를 맞춘다 — 손으로 세다가 어긋나는 것을 막는다.
+    """
+    b = '4' if lit else '5'
+    z = '1' if lit else '3'
+    # (앞 여백, 번개 폭)
+    glyph = [
+        (0, 0), (6, 2), (5, 2), (4, 2), (3, 4),
+        (4, 3), (5, 2), (6, 2), (5, 2), (4, 2),
+        (5, 2), (6, 2), (7, 1), (0, 0),
+    ]
+    out = ['3' * 16]
+    for pad, n in glyph:
+        inner = b * pad + z * n + b * (14 - pad - n)
+        assert len(inner) == 14, f'번개 행 폭 {len(inner)}'
+        out.append('3' + inner + '3')
+    out.append('3' * 16)
+    return rows(16, *out)
+
+
 if __name__ == '__main__':
     print('도트 정의 생성:')
     dump('hero_small', 16, 12, HERO_PAL, hero_small_frames, hero_small_names)
@@ -631,4 +683,7 @@ if __name__ == '__main__':
          ['spike', 'lava', 'lava1', 'lava2', 'spring'])
     dump('flyer', 14, 12, FLY_PAL, [flyer(True), flyer(False)], ['flyer0', 'flyer1'])
     dump('boss', 40, 26, BOSS_PAL, [boss(False), boss(True)], ['boss0', 'boss1'])
+    dump('bolt', 14, 14, BOLT_PAL, [bolt_item], ['boltItem'])
+    dump('boltblock', 16, 16, BOLT_PAL, [bolt_block(True), bolt_block(False)],
+         ['boltBlock', 'boltBlockUsed'])
     print('완료')
