@@ -1,0 +1,236 @@
+import type {
+  Ball,
+  Enemy,
+  EnemyKind,
+  Item,
+  LevelEntity,
+  Platform,
+  Player,
+  TileGrid,
+} from '../types'
+import { TILE, VIEW_W } from '../engine/tuning'
+import { applyGravity, moveX, moveY } from '../engine/physics'
+
+export const ENEMY_SIZE: Record<EnemyKind, { w: number; h: number }> = {
+  broccoli: { w: 12, h: 12 },
+  soup: { w: 14, h: 12 },
+  crocodile: { w: 26, h: 10 },
+}
+
+export const ENEMY_TUNING = {
+  broccoliSpeed: 40,
+  soupJumpVel: -260,
+  soupPeriodMs: 1400,
+  crocSpeed: 90,
+  crocSenseTiles: 8,
+  crocHp: 2,
+  squashMs: 300,
+  ballSpeed: 120,
+  ballJumpVel: -120,
+  ballMaxBounces: 3,
+  itemSpeed: 40,
+  platformW: 3 * TILE,
+  platformH: 8,
+} as const
+
+export function createEnemy(kind: EnemyKind, tx: number, ty: number, dir: 1 | -1): Enemy {
+  const { w, h } = ENEMY_SIZE[kind]
+  const x = tx * TILE + (TILE - w) / 2
+  return {
+    kind,
+    dir,
+    x,
+    y: (ty + 1) * TILE - h,
+    vx: 0,
+    vy: 0,
+    w,
+    h,
+    onGround: false,
+    homeX: x,
+    active: false,
+    alive: true,
+    timerMs: 0,
+    hp: kind === 'crocodile' ? ENEMY_TUNING.crocHp : 1,
+    squashMs: 0,
+  }
+}
+
+export function updateEnemy(e: Enemy, grid: TileGrid, player: Player, dt: number): void {
+  if (!e.alive) return
+
+  // 밟혀서 납작해진 상태 — 잠시 보여주고 사라진다
+  if (e.squashMs > 0) {
+    e.squashMs -= dt * 1000
+    if (e.squashMs <= 0) e.alive = false
+    return
+  }
+
+  if (!e.active) return
+
+  switch (e.kind) {
+    case 'broccoli':
+      e.vx = e.dir * ENEMY_TUNING.broccoliSpeed
+      break
+
+    case 'soup': {
+      e.vx = 0
+      e.timerMs += dt * 1000
+      if (e.onGround && e.timerMs >= ENEMY_TUNING.soupPeriodMs) {
+        e.vy = ENEMY_TUNING.soupJumpVel
+        e.timerMs = 0
+      }
+      break
+    }
+
+    case 'crocodile': {
+      // timerMs를 "돌진 중" 플래그로 쓴다 (0보다 크면 돌진 중)
+      if (e.timerMs === 0) {
+        const dist = Math.abs(player.x + player.w / 2 - (e.x + e.w / 2))
+        if (dist <= ENEMY_TUNING.crocSenseTiles * TILE) {
+          e.timerMs = 1
+          e.dir = player.x < e.x ? -1 : 1
+        }
+      }
+      e.vx = e.timerMs > 0 ? e.dir * ENEMY_TUNING.crocSpeed : 0
+      break
+    }
+  }
+
+  applyGravity(e, dt, false)
+  if (moveX(e, grid, dt)) e.dir = (e.dir * -1) as 1 | -1
+  moveY(e, grid, dt, false) // 적에게 코너 보정을 켜면 벽을 통과한다
+}
+
+export function createPlatform(def: Extract<LevelEntity, { type: 'platform' }>): Platform {
+  const x = def.x * TILE
+  const y = def.y * TILE
+  return {
+    x,
+    y,
+    vx: 0,
+    vy: 0,
+    w: ENEMY_TUNING.platformW,
+    h: ENEMY_TUNING.platformH,
+    onGround: false,
+    axis: def.axis,
+    range: def.range,
+    speed: def.speed,
+    originX: x,
+    originY: y,
+    dir: 1,
+  }
+}
+
+/** 왕복 이동. 반환값은 이번 프레임 이동량 — 위에 탄 몸에 더해진다. */
+export function updatePlatform(pf: Platform, dt: number): { dx: number; dy: number } {
+  const span = pf.range * TILE
+  const delta = pf.dir * pf.speed * dt
+
+  if (pf.axis === 'x') {
+    const next = pf.x + delta
+    if (next > pf.originX + span || next < pf.originX - span) {
+      pf.dir = (pf.dir * -1) as 1 | -1
+      return { dx: 0, dy: 0 }
+    }
+    pf.x = next
+    return { dx: delta, dy: 0 }
+  }
+
+  const next = pf.y + delta
+  if (next > pf.originY + span || next < pf.originY - span) {
+    pf.dir = (pf.dir * -1) as 1 | -1
+    return { dx: 0, dy: 0 }
+  }
+  pf.y = next
+  return { dx: 0, dy: delta }
+}
+
+export function createBall(p: Player): Ball {
+  const size = 12
+  return {
+    x: p.facing === 1 ? p.x + p.w : p.x - size,
+    // 세로 중심을 플레이어 중심에 맞춘다. p.y + p.h/2 로 두면 공 하단이
+    // 발보다 아래로 내려가 스폰하는 순간 바닥에 박힌다.
+    y: p.y + p.h / 2 - size / 2,
+    vx: p.facing * ENEMY_TUNING.ballSpeed,
+    vy: 0,
+    w: 12,
+    h: 12,
+    onGround: false,
+    bounces: 0,
+    alive: true,
+  }
+}
+
+export function updateBall(b: Ball, grid: TileGrid, dt: number): void {
+  if (!b.alive) return
+  applyGravity(b, dt, false)
+  if (moveX(b, grid, dt)) {
+    b.alive = false // 벽에 닿으면 소멸
+    return
+  }
+  const v = moveY(b, grid, dt, false)
+  if (v.hit === 'ground') {
+    b.bounces += 1
+    if (b.bounces >= ENEMY_TUNING.ballMaxBounces) {
+      b.alive = false
+      return
+    }
+    b.vy = ENEMY_TUNING.ballJumpVel
+    b.onGround = false
+  }
+}
+
+export function createItem(
+  kind: 'peach' | 'ball',
+  tx: number,
+  ty: number,
+  dir: 1 | -1,
+): Item {
+  const w = kind === 'peach' ? 14 : 12
+  const h = w
+  return {
+    x: tx * TILE + (TILE - w) / 2,
+    y: (ty + 1) * TILE - h,
+    vx: kind === 'peach' ? dir * ENEMY_TUNING.itemSpeed : 0,
+    vy: 0,
+    w,
+    h,
+    onGround: false,
+    kind,
+    taken: false,
+  }
+}
+
+export function updateItem(it: Item, grid: TileGrid, dt: number): void {
+  if (it.taken) return
+  applyGravity(it, dt, false)
+  if (it.kind === 'peach') {
+    // moveX 가 막히면 vx를 0으로 만들기 때문에, 진행 방향을 미리 잡아둔다.
+    // 나중에 읽으면 Math.sign(0) === 0 이 되어 반전이 아니라 정지가 된다.
+    const dir = Math.sign(it.vx) || 1
+    if (moveX(it, grid, dt)) it.vx = -dir * ENEMY_TUNING.itemSpeed
+  }
+  moveY(it, grid, dt, false)
+}
+
+export function spawnFromLevel(defs: LevelEntity[]): {
+  enemies: Enemy[]
+  platforms: Platform[]
+} {
+  const enemies: Enemy[] = []
+  const platforms: Platform[] = []
+  for (const d of defs) {
+    if (d.type === 'platform') platforms.push(createPlatform(d))
+    else enemies.push(createEnemy(d.type, d.x, d.y, d.dir ?? -1))
+  }
+  return { enemies, platforms }
+}
+
+/** 카메라 오른쪽 끝을 지나면 활성화. 한번 켜지면 끄지 않는다. */
+export function activateVisible(enemies: Enemy[], camX: number): void {
+  const edge = camX + VIEW_W
+  for (const e of enemies) {
+    if (!e.active && e.homeX <= edge) e.active = true
+  }
+}
