@@ -66,13 +66,18 @@ const input = createInput()
 const audio = createAudio()
 audio.setMuted(state.muted)
 
-/** iOS는 사용자 제스처 전에는 오디오를 켜주지 않는다 */
+/**
+ * iOS는 사용자 제스처 안에서 컨텍스트를 만들고 소리를 한 번 내야 재생을
+ * 허용한다. audio.unlock() 이 무음 버퍼를 흘려 그 조건을 채운다.
+ * 반드시 제스처 핸들러에서 동기적으로 불러야 한다.
+ */
 let audioUnlocked = false
 function unlockAudio(): void {
   if (audioUnlocked) return
   audioUnlocked = true
+  audio.unlock()
   void audio.resume().then(() => {
-    if (state.scene === 'playing') audio.startBgm()
+    if (state.scene === 'playing' && !state.muted) audio.startBgm()
   })
 }
 
@@ -103,8 +108,9 @@ function startRun(mode: Mode): void {
   state = newGameState(data, mode)
   state.muted = muted
   input.reset()
+  audio.unlock()
   audio.play('select')
-  void audio.resume().then(() => audio.startBgm())
+  if (!muted) audio.startBgm()
 }
 
 function inRect(r: { x: number; y: number; w: number; h: number }, px: number, py: number): boolean {
@@ -117,6 +123,8 @@ function handleTap(px: number, py: number): boolean {
     state.muted = !state.muted
     saveMuted(state.muted)
     audio.setMuted(state.muted)
+    if (state.muted) audio.stopBgm()
+    else if (state.scene === 'playing') audio.startBgm()
     return false
   }
   if (state.scene === 'title') {
@@ -188,7 +196,8 @@ const loop = createLoop({
       saveRecord(state.mode, records[state.mode])
       audio.stopBgm()
     }
-    if (state.scene === 'gameover') audio.stopBgm()
+    if (state.scene === 'gameover' || state.scene === 'dead') audio.stopBgm()
+    else if (state.scene === 'playing' && !state.muted) audio.startBgm()
     input.endFrame()
     tick += 1
   },
