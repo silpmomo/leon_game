@@ -16,13 +16,22 @@ import { drawRotateOverlay, isPortrait } from './ui/orientation'
 import { drawTitle, titleHitTest } from './ui/titleScreen'
 import { clearHitTest, drawClear } from './ui/clearScreen'
 import { loadMuted, loadRecord, saveMuted, saveRecord } from './storage'
+import { createPerfWatch, pickScale } from './perf'
 
 const canvas = document.getElementById('game') as HTMLCanvasElement
 const ctx = canvas.getContext('2d')!
 ctx.imageSmoothingEnabled = false
 
 const data = level as LevelData
-assertValidLevel(data) // 잘못된 레벨로는 부팅하지 않는다
+try {
+  assertValidLevel(data) // 잘못된 레벨로는 부팅하지 않는다
+} catch (e) {
+  // 검은 화면 대신 원인을 보여준다
+  document.body.style.cssText =
+    'background:#1b1020;color:#fdd;font:12px/1.7 monospace;padding:20px;white-space:pre-wrap'
+  document.body.textContent = e instanceof Error ? e.message : String(e)
+  throw e
+}
 
 const records: Record<Mode, BestRecord> = {
   practice: loadRecord('practice'),
@@ -69,14 +78,13 @@ function unlockAudio(): void {
 
 let scale = 1
 
+/** 저사양 기기에서 프레임이 계속 느리면 렌더 배율을 한 단계 낮춘다 */
+const perf = createPerfWatch()
+let downgraded = false
+let lastFrameAt = 0
+
 function resize(): void {
-  scale = Math.max(
-    1,
-    Math.min(
-      Math.floor(window.innerWidth / VIEW_W),
-      Math.floor(window.innerHeight / VIEW_H),
-    ),
-  )
+  scale = pickScale(window.innerWidth, window.innerHeight, downgraded)
   canvas.width = VIEW_W
   canvas.height = VIEW_H
   canvas.style.width = `${VIEW_W * scale}px`
@@ -185,6 +193,14 @@ const loop = createLoop({
     tick += 1
   },
   render: () => {
+    const now = performance.now()
+    if (lastFrameAt > 0 && perf.sample(now - lastFrameAt)) {
+      downgraded = true
+      resize()
+      console.warn('프레임이 계속 느려서 렌더 배율을 낮췄다')
+    }
+    lastFrameAt = now
+
     if (isPortrait()) {
       audio.stopBgm()
       drawRotateOverlay(ctx)
@@ -214,6 +230,10 @@ document.addEventListener('visibilitychange', () => {
     loop.reset()
     if (state.scene === 'playing' && !state.muted) audio.startBgm()
   }
+})
+
+window.addEventListener('error', (e) => {
+  console.error('게임 루프 예외', e.error)
 })
 
 resize()
