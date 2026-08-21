@@ -10,6 +10,7 @@ import { createInput } from './core/input'
 import { createLoop } from './core/loop'
 import { loadAtlas, type AtlasData, type LoadedAtlas } from './render/atlas'
 import { drawControls, drawWorld } from './render/renderer'
+import { drawDebug } from './render/debugOverlay'
 import { MUTE_RECT, drawHud } from './render/hud'
 import { drawRotateOverlay, isPortrait } from './ui/orientation'
 import { drawTitle, titleHitTest } from './ui/titleScreen'
@@ -37,6 +38,17 @@ let atlas: LoadedAtlas = { data: atlasJson as AtlasData, image: null }
 void loadAtlas(atlasJson as AtlasData, `${import.meta.env.BASE_URL}sprites/`).then((a) => {
   atlas = a
 })
+
+/**
+ * ?debug=1 — 히트박스·격자 오버레이와 상수 튜닝 패널.
+ * 패널은 동적 import라서 프로덕션 번들에 들어가지 않는다.
+ */
+const DEBUG = new URLSearchParams(location.search).get('debug') === '1'
+if (DEBUG) {
+  void import('./ui/tuningPanel').then((m) => {
+    m.mountTuningPanel()
+  })
+}
 
 /** 애니메이션 프레임 카운터 */
 let tick = 0
@@ -189,6 +201,7 @@ const loop = createLoop({
       drawControls(ctx, state.player.power)
     }
     if (state.scene === 'clear' || state.scene === 'gameover') drawClear(ctx, state)
+    if (DEBUG) drawDebug(ctx, state)
   },
 })
 
