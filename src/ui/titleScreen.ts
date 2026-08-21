@@ -43,7 +43,7 @@ export function drawTitle(
   ctx.textBaseline = 'alphabetic'
   ctx.fillStyle = '#fff'
   ctx.font = 'bold 20px sans-serif'
-  ctx.fillText('레온의 대모험', VIEW_W / 2, 46)
+  ctx.fillText('리온의 대모험', VIEW_W / 2, 46)
   ctx.font = '9px sans-serif'
   ctx.fillStyle = 'rgba(255,255,255,.8)'
   ctx.fillText('1-1', VIEW_W / 2, 62)
