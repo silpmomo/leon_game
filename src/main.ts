@@ -4,6 +4,7 @@ import { VIEW_H, VIEW_W } from './engine/tuning'
 import { assertValidLevel } from './levels/schema'
 import { newGameState, updateFrame } from './game/update'
 import { advanceScene, toRecord } from './game/scenes'
+import { createAudio } from './core/audio'
 import { createInput } from './core/input'
 import { createLoop } from './core/loop'
 import { drawControls, drawWorld } from './render/renderer'
@@ -30,6 +31,19 @@ state.scene = 'title'
 state.muted = loadMuted()
 
 const input = createInput()
+const audio = createAudio()
+audio.setMuted(state.muted)
+
+/** iOS는 사용자 제스처 전에는 오디오를 켜주지 않는다 */
+let audioUnlocked = false
+function unlockAudio(): void {
+  if (audioUnlocked) return
+  audioUnlocked = true
+  void audio.resume().then(() => {
+    if (state.scene === 'playing') audio.startBgm()
+  })
+}
+
 let scale = 1
 
 function resize(): void {
@@ -58,6 +72,8 @@ function startRun(mode: Mode): void {
   state = newGameState(data, mode)
   state.muted = muted
   input.reset()
+  audio.play('select')
+  void audio.resume().then(() => audio.startBgm())
 }
 
 function inRect(r: { x: number; y: number; w: number; h: number }, px: number, py: number): boolean {
@@ -69,6 +85,7 @@ function handleTap(px: number, py: number): boolean {
   if (inRect(MUTE_RECT, px, py)) {
     state.muted = !state.muted
     saveMuted(state.muted)
+    audio.setMuted(state.muted)
     return false
   }
   if (state.scene === 'title') {
@@ -91,6 +108,7 @@ function handleTap(px: number, py: number): boolean {
 canvas.addEventListener('pointerdown', (e) => {
   e.preventDefault()
   canvas.setPointerCapture(e.pointerId)
+  unlockAudio()
   const [px, py] = toLogical(e.clientX, e.clientY)
   if (!handleTap(px, py)) return
   input.onPointerDown(e.pointerId, px, py, state.player.power)
@@ -104,6 +122,7 @@ for (const type of ['pointerup', 'pointercancel', 'lostpointercapture'] as const
   })
 }
 window.addEventListener('keydown', (e) => {
+  unlockAudio()
   if (state.scene === 'title' && (e.code === 'Space' || e.code === 'Enter')) {
     startRun('practice')
     return
@@ -122,6 +141,7 @@ window.addEventListener('blur', () => {
 })
 window.addEventListener('resize', resize)
 
+
 const loop = createLoop({
   update: (dt) => {
     if (isPortrait()) return
@@ -129,16 +149,20 @@ const loop = createLoop({
 
     input.beginFrame()
     const events = state.scene === 'playing' ? updateFrame(state, input.state, dt) : []
+    for (const e of events) audio.play(e)
     const wasClear = state.scene === 'clear'
     advanceScene(state, events, dt)
     if (!wasClear && state.scene === 'clear') {
       records[state.mode] = toRecord(state, records[state.mode])
       saveRecord(state.mode, records[state.mode])
+      audio.stopBgm()
     }
+    if (state.scene === 'gameover') audio.stopBgm()
     input.endFrame()
   },
   render: () => {
     if (isPortrait()) {
+      audio.stopBgm()
       drawRotateOverlay(ctx)
       return
     }
@@ -154,6 +178,17 @@ const loop = createLoop({
     }
     if (state.scene === 'clear' || state.scene === 'gameover') drawClear(ctx, state)
   },
+})
+
+// 탭을 벗어나면 BGM을 멈추고 복귀 시 루프 누적자를 초기화한다
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    input.reset()
+    audio.stopBgm()
+  } else {
+    loop.reset()
+    if (state.scene === 'playing' && !state.muted) audio.startBgm()
+  }
 })
 
 resize()
