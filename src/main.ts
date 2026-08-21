@@ -1,4 +1,5 @@
 import level from './levels/1-1.json'
+import atlasJson from '../public/sprites/atlas.json'
 import type { BestRecord, LevelData, Mode } from './types'
 import { VIEW_H, VIEW_W } from './engine/tuning'
 import { assertValidLevel } from './levels/schema'
@@ -7,6 +8,7 @@ import { advanceScene, toRecord } from './game/scenes'
 import { createAudio } from './core/audio'
 import { createInput } from './core/input'
 import { createLoop } from './core/loop'
+import { loadAtlas, type AtlasData, type LoadedAtlas } from './render/atlas'
 import { drawControls, drawWorld } from './render/renderer'
 import { MUTE_RECT, drawHud } from './render/hud'
 import { drawRotateOverlay, isPortrait } from './ui/orientation'
@@ -29,6 +31,15 @@ const records: Record<Mode, BestRecord> = {
 let state = newGameState(data, 'practice')
 state.scene = 'title'
 state.muted = loadMuted()
+
+/** 시트가 로드될 때까지는 폴백 사각형으로 그린다 */
+let atlas: LoadedAtlas = { data: atlasJson as AtlasData, image: null }
+void loadAtlas(atlasJson as AtlasData, `${import.meta.env.BASE_URL}sprites/`).then((a) => {
+  atlas = a
+})
+
+/** 애니메이션 프레임 카운터 */
+let tick = 0
 
 const input = createInput()
 const audio = createAudio()
@@ -159,6 +170,7 @@ const loop = createLoop({
     }
     if (state.scene === 'gameover') audio.stopBgm()
     input.endFrame()
+    tick += 1
   },
   render: () => {
     if (isPortrait()) {
@@ -171,7 +183,7 @@ const loop = createLoop({
       return
     }
 
-    drawWorld(ctx, state)
+    drawWorld(ctx, state, atlas, tick)
     drawHud(ctx, state)
     if (state.scene === 'playing' || state.scene === 'dead') {
       drawControls(ctx, state.player.power)

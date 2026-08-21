@@ -1,0 +1,25 @@
+{
+  "_comment": "좌표는 90도 CW 회전 후의 정방향 좌표계 (4284 x 5712) 기준",
+  "source": "IMG_7520.HEIC",
+  "rotateCw": 90,
+  "crop": {
+    "x": 1900,
+    "y": 1530,
+    "w": 850,
+    "h": 990
+  },
+  "targetWidth": 32,
+  "posterizeLevels": 8,
+  "_note": "posterizeLevels 를 4로 낮추면 살색이 자홍색으로 무너진다. 8 이상 유지.",
+  "alternates": [
+    {
+      "source": "IMG_7550.HEIC",
+      "note": "정면·차분한 표정. 웃는 표정이 마음에 안 들 때 후보"
+    }
+  ],
+  "mask": {
+    "type": "ellipse",
+    "feather": 2,
+    "_note": "타원 밖은 알파 0. 배경(벽)을 잘라낸다. 머리 실루엣은 도트로 덧그린다."
+  }
+}

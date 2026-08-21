@@ -1,21 +1,104 @@
-import type { GameState, PowerState, Tile } from '../types'
+import type { Enemy, GameState, Player, PowerState, Tile } from '../types'
 import { TILE, VIEW_H, VIEW_W } from '../engine/tuning'
 import { tileAt } from '../world/tilemap'
 import { BUTTON_ALPHA, buttonRects } from '../ui/controls'
+import { FALLBACK_COLOR, frame, type LoadedAtlas } from './atlas'
 
-const TILE_COLOR: Partial<Record<Tile, string>> = {
-  '#': '#a85c30',
-  B: '#8f4d24',
-  b: '#8f4d24',
-  '?': '#f2b134',
-  '@': '#f28f5c',
-  '*': '#eddb6a',
-  H: '#9aa3ad',
-  p: '#3fae52',
-  '|': '#2e8b3e',
+const TILE_FRAME: Partial<Record<Tile, string>> = {
+  '#': 'ground',
+  B: 'brick',
+  b: 'brick',
+  '?': 'question',
+  '@': 'question',
+  '*': 'question',
+  H: 'hard',
+  p: 'pipeTop',
+  '|': 'pipeBody',
 }
 
-export function drawWorld(ctx: CanvasRenderingContext2D, s: GameState): void {
+/** 얼굴/몸통 비율. 합이 스프라이트 전체 높이가 된다. */
+const HERO_LAYOUT = {
+  small: { faceW: 13, faceH: 15, bodyW: 16, bodyH: 12 },
+  big: { faceW: 15, faceH: 17, bodyW: 20, bodyH: 18 },
+} as const
+
+function draw(
+  ctx: CanvasRenderingContext2D,
+  atlas: LoadedAtlas,
+  name: string,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  flip = false,
+): void {
+  const f = frame(atlas.data, name)
+  if (atlas.image && f) {
+    ctx.save()
+    if (flip) {
+      ctx.translate(Math.round(x) + w, Math.round(y))
+      ctx.scale(-1, 1)
+      ctx.drawImage(atlas.image, f.x, f.y, f.w, f.h, 0, 0, w, h)
+    } else {
+      ctx.drawImage(atlas.image, f.x, f.y, f.w, f.h, Math.round(x), Math.round(y), w, h)
+    }
+    ctx.restore()
+    return
+  }
+  // 자홍색이 보이면 정의되지 않은 프레임을 요청한 것이다
+  ctx.fillStyle = FALLBACK_COLOR[name] ?? '#ff00ff'
+  ctx.fillRect(Math.round(x), Math.round(y), w, h)
+}
+
+function heroBodyFrame(p: Player): string {
+  const big = p.power !== 'small'
+  if (big) {
+    if (!p.onGround) return 'heroBigJump'
+    return Math.abs(p.vx) > 5 ? 'heroBigWalk1' : 'heroBigIdle'
+  }
+  if (p.skidding) return 'heroSmallSkid'
+  if (!p.onGround) return 'heroSmallJump'
+  if (Math.abs(p.vx) <= 5) return 'heroSmallIdle'
+  // 속도에 맞춰 걷기 4프레임을 순환한다
+  const phase = Math.floor(Math.abs(p.x) / 6) % 4
+  return `heroSmallWalk${phase + 1}`
+}
+
+function drawHero(ctx: CanvasRenderingContext2D, atlas: LoadedAtlas, p: Player): void {
+  const big = p.power !== 'small'
+  const L = big ? HERO_LAYOUT.big : HERO_LAYOUT.small
+  // 히트박스 중심에 스프라이트 중심을 맞춘다 (스프라이트가 히트박스보다 넓다)
+  const cx = p.x + p.w / 2
+  const bottom = p.y + p.h
+  const flip = p.facing === -1
+
+  draw(ctx, atlas, heroBodyFrame(p), cx - L.bodyW / 2, bottom - L.bodyH, L.bodyW, L.bodyH, flip)
+  const faceY = bottom - L.bodyH - L.faceH + 2 // 2px 겹쳐 목 경계를 감춘다
+  draw(ctx, atlas, 'face', cx - L.faceW / 2, faceY, L.faceW, L.faceH, flip)
+
+  if (p.invulnMs > 0) {
+    draw(ctx, atlas, 'eyesShut', cx - L.faceW / 2, faceY + Math.round(L.faceH * 0.35), L.faceW, 6, flip)
+  }
+}
+
+function enemyFrame(e: Enemy, t: number): string {
+  if (e.squashMs > 0) return e.kind === 'broccoli' ? 'broccoliSquash' : `${e.kind}0`
+  switch (e.kind) {
+    case 'broccoli':
+      return `broccoli${Math.floor(t / 8) % 2}`
+    case 'soup':
+      return e.onGround ? 'soupCrouch' : 'soupJump'
+    case 'crocodile':
+      return `crocodile${Math.floor(t / 6) % 2}`
+  }
+}
+
+export function drawWorld(
+  ctx: CanvasRenderingContext2D,
+  s: GameState,
+  atlas: LoadedAtlas,
+  tick: number,
+): void {
   // 하늘
   const sky = ctx.createLinearGradient(0, 0, 0, VIEW_H)
   sky.addColorStop(0, '#8ed0f2')
@@ -31,74 +114,64 @@ export function drawWorld(ctx: CanvasRenderingContext2D, s: GameState): void {
   const tx0 = Math.max(0, Math.floor(s.camera.x / TILE))
   const tx1 = Math.min(s.grid.w - 1, Math.ceil((s.camera.x + VIEW_W) / TILE))
 
+  const bumpAt = new Map<string, number>()
+  for (const b of s.bumps) bumpAt.set(`${b.tx},${b.ty}`, b.ms)
+
   for (let tx = tx0; tx <= tx1; tx++) {
     for (let ty = 0; ty < s.grid.h; ty++) {
-      const color = TILE_COLOR[tileAt(s.grid, tx, ty)]
-      if (!color) continue
-      ctx.fillStyle = color
-      ctx.fillRect(tx * TILE, ty * TILE, TILE, TILE)
-      ctx.strokeStyle = 'rgba(0,0,0,.18)'
-      ctx.strokeRect(tx * TILE + 0.5, ty * TILE + 0.5, TILE - 1, TILE - 1)
+      const t = tileAt(s.grid, tx, ty)
+      const name = TILE_FRAME[t]
+      if (!name) continue
+      // 아래에서 친 블록은 살짝 위로 튕긴다
+      const bump = bumpAt.get(`${tx},${ty}`)
+      const lift = bump ? Math.round(Math.sin((bump / 140) * Math.PI) * 4) : 0
+      draw(ctx, atlas, name, tx * TILE, ty * TILE - lift, TILE, TILE)
     }
   }
 
+  // 깃대 (타일이 아니라 goal 데이터로 그린다)
+  const goalX = s.level.goal.x * TILE
+  for (let ty = s.level.goal.flagTop; ty < s.level.height - 2; ty++) {
+    draw(ctx, atlas, ty === s.level.goal.flagTop ? 'flag' : 'flagPole', goalX, ty * TILE, TILE, TILE)
+  }
+  for (let i = 0; i < 3; i++) {
+    draw(ctx, atlas, 'castle', goalX + (5 + i) * TILE, (s.level.height - 4) * TILE, TILE, TILE * 2)
+  }
+
   // 코인
-  ctx.fillStyle = '#e8b52a'
   for (const c of s.coins) {
     if (c.taken) continue
-    ctx.fillRect(c.x, c.y, c.w, c.h)
+    draw(ctx, atlas, `coin${Math.floor(tick / 6) % 4}`, c.x, c.y, c.w, c.h)
   }
 
   // 아이템
   for (const it of s.items) {
     if (it.taken) continue
-    ctx.fillStyle = it.kind === 'peach' ? '#f2795c' : '#ffffff'
-    ctx.fillRect(Math.round(it.x), Math.round(it.y), it.w, it.h)
+    draw(ctx, atlas, it.kind === 'peach' ? 'peach' : 'ball0', it.x, it.y, it.w, it.h)
   }
 
   // 이동발판
-  ctx.fillStyle = '#d8b06a'
   for (const pf of s.platforms) {
-    ctx.fillRect(Math.round(pf.x), Math.round(pf.y), pf.w, pf.h)
+    for (let i = 0; i < pf.w / TILE; i++) {
+      draw(ctx, atlas, 'used', pf.x + i * TILE, pf.y, TILE, pf.h)
+    }
   }
 
   // 적
-  const ENEMY_COLOR = { broccoli: '#3f8f4e', soup: '#24402c', crocodile: '#4f8a3b' }
   for (const e of s.enemies) {
     if (!e.alive) continue
-    ctx.fillStyle = e.squashMs > 0 ? '#6b6b6b' : ENEMY_COLOR[e.kind]
-    const h = e.squashMs > 0 ? Math.max(3, e.h / 3) : e.h
-    ctx.fillRect(Math.round(e.x), Math.round(e.y + e.h - h), e.w, h)
+    draw(ctx, atlas, enemyFrame(e, tick), e.x, e.y, e.w, e.h, e.dir === 1)
   }
 
   // 축구공
-  ctx.fillStyle = '#ffffff'
   for (const b of s.balls) {
     if (!b.alive) continue
-    ctx.fillRect(Math.round(b.x), Math.round(b.y), b.w, b.h)
+    draw(ctx, atlas, `ball${Math.floor(tick / 4) % 4}`, b.x, b.y, b.w, b.h)
   }
 
-  // 플레이어 — 스프라이트 전이라 얼굴 자리 + 몸통을 사각형으로 그린다
-  const p = s.player
-  const blink = p.invulnMs > 0 && Math.floor(p.invulnMs / 80) % 2 === 0
-  if (!blink) {
-    const headH = Math.round(p.h * 0.45)
-    ctx.fillStyle = '#14110f' // 흑발
-    ctx.fillRect(Math.round(p.x), Math.round(p.y) - 2, p.w, 3)
-    ctx.fillStyle = '#f0c9a4' // 얼굴
-    ctx.fillRect(Math.round(p.x), Math.round(p.y), p.w, headH)
-    ctx.fillStyle = '#4bc0ae' // 민트 저지
-    ctx.fillRect(Math.round(p.x), Math.round(p.y) + headH, p.w, p.h - headH - 4)
-    ctx.fillStyle = '#ece3cf' // 아이보리 반바지
-    ctx.fillRect(Math.round(p.x), Math.round(p.y) + p.h - 4, p.w, 4)
-  }
-
-  // 깃대
-  const goalX = s.level.goal.x * TILE
-  ctx.fillStyle = '#4a4a4a'
-  ctx.fillRect(goalX, s.level.goal.flagTop * TILE, 2, (s.level.height - 2 - s.level.goal.flagTop) * TILE)
-  ctx.fillStyle = '#e0453c'
-  ctx.fillRect(goalX + 2, s.level.goal.flagTop * TILE + 2, 10, 7)
+  // 플레이어 — 무적 중에는 깜빡인다
+  const blink = s.player.invulnMs > 0 && Math.floor(s.player.invulnMs / 80) % 2 === 0
+  if (!blink) drawHero(ctx, atlas, s.player)
 
   ctx.restore()
 }
