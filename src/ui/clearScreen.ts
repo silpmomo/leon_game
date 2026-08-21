@@ -2,24 +2,41 @@ import type { GameState, Rect } from '../types'
 import { VIEW_H, VIEW_W } from '../engine/tuning'
 import { CHALLENGE_TIME_MS } from '../game/update'
 
-const BTN_W = 104
+const BTN_W = 92
 const BTN_H = 26
 const BTN_Y = Math.round(VIEW_H * 0.72)
+const GAP = 8
 
-export const AGAIN_RECT: Rect = { x: VIEW_W / 2 - BTN_W - 8, y: BTN_Y, w: BTN_W, h: BTN_H }
-export const TITLE_RECT: Rect = { x: VIEW_W / 2 + 8, y: BTN_Y, w: BTN_W, h: BTN_H }
+/** 세 버튼을 가운데 정렬 */
+const TOTAL = BTN_W * 3 + GAP * 2
+const X0 = Math.round((VIEW_W - TOTAL) / 2)
+
+export const NEXT_RECT: Rect = { x: X0, y: BTN_Y, w: BTN_W, h: BTN_H }
+export const AGAIN_RECT: Rect = { x: X0 + BTN_W + GAP, y: BTN_Y, w: BTN_W, h: BTN_H }
+export const TITLE_RECT: Rect = { x: X0 + (BTN_W + GAP) * 2, y: BTN_Y, w: BTN_W, h: BTN_H }
 
 function inside(r: Rect, px: number, py: number): boolean {
   return px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h
 }
 
-export function clearHitTest(px: number, py: number): 'again' | 'title' | null {
+export type ClearAction = 'next' | 'again' | 'title'
+
+export function clearHitTest(
+  px: number,
+  py: number,
+  hasNext: boolean,
+): ClearAction | null {
+  if (hasNext && inside(NEXT_RECT, px, py)) return 'next'
   if (inside(AGAIN_RECT, px, py)) return 'again'
   if (inside(TITLE_RECT, px, py)) return 'title'
   return null
 }
 
-export function drawClear(ctx: CanvasRenderingContext2D, s: GameState): void {
+export function drawClear(
+  ctx: CanvasRenderingContext2D,
+  s: GameState,
+  hasNext: boolean,
+): void {
   ctx.fillStyle = 'rgba(11,13,18,.86)'
   ctx.fillRect(0, 0, VIEW_W, VIEW_H)
 
@@ -28,7 +45,7 @@ export function drawClear(ctx: CanvasRenderingContext2D, s: GameState): void {
   ctx.textBaseline = 'alphabetic'
   ctx.fillStyle = cleared ? '#7fd463' : '#e2574c'
   ctx.font = 'bold 18px sans-serif'
-  ctx.fillText(cleared ? '클리어!' : '게임 오버', VIEW_W / 2, 44)
+  ctx.fillText(cleared ? `${s.level.name} 클리어!` : '게임 오버', VIEW_W / 2, 44)
 
   const elapsed = s.mode === 'practice' ? s.timeMs : CHALLENGE_TIME_MS - s.timeMs
   const secs = Math.max(0, Math.round(elapsed / 1000))
@@ -43,8 +60,9 @@ export function drawClear(ctx: CanvasRenderingContext2D, s: GameState): void {
   lines.forEach((t, i) => ctx.fillText(t, VIEW_W / 2, 72 + i * 15))
 
   const buttons: [Rect, string, string][] = [
+    ...(hasNext ? ([[NEXT_RECT, '다음 탄 →', '#f2b134']] as [Rect, string, string][]) : []),
     [AGAIN_RECT, '다시 하기', '#4bc0ae'],
-    [TITLE_RECT, '처음 화면', '#5a6472'],
+    [TITLE_RECT, '탄 고르기', '#5a6472'],
   ]
   for (const [r, label, color] of buttons) {
     ctx.fillStyle = color

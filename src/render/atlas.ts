@@ -49,6 +49,15 @@ export const REQUIRED_FRAMES = [
   'eyesShut',
   'sweat',
   'star',
+  'spike',
+  'lava',
+  'lava1',
+  'lava2',
+  'spring',
+  'flyer0',
+  'flyer1',
+  'boss0',
+  'boss1',
 ] as const
 
 export const FALLBACK_COLOR: Record<string, string> = {
@@ -92,6 +101,15 @@ export const FALLBACK_COLOR: Record<string, string> = {
   eyesShut: '#14110f',
   sweat: '#7ecbf5',
   star: '#ffe066',
+  spike: '#c9ced6',
+  lava: '#d63c10',
+  lava1: '#d63c10',
+  lava2: '#d63c10',
+  spring: '#4bc0ae',
+  flyer0: '#b95cc0',
+  flyer1: '#b95cc0',
+  boss0: '#3f7a2c',
+  boss1: '#3f7a2c',
 }
 
 export function frame(data: AtlasData, name: string): FrameRect | null {

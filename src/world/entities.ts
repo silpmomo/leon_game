@@ -15,6 +15,8 @@ export const ENEMY_SIZE: Record<EnemyKind, { w: number; h: number }> = {
   broccoli: { w: 12, h: 12 },
   soup: { w: 14, h: 12 },
   crocodile: { w: 26, h: 10 },
+  flyer: { w: 14, h: 12 },
+  boss: { w: 40, h: 26 },
 }
 
 export const ENEMY_TUNING = {
@@ -31,6 +33,19 @@ export const ENEMY_TUNING = {
   itemSpeed: 40,
   platformW: 3 * TILE,
   platformH: 8,
+
+  // 나는 적 — 좌우로 가면서 사인 곡선으로 오르내린다
+  flyerSpeed: 55,
+  flyerAmpTiles: 1.6,
+  flyerPeriodMs: 2000,
+
+  // 보스 — 걷다가 주기적으로 크게 뛴다. 밟기 불가, 축구공 5발
+  bossSpeed: 55,
+  bossHp: 5,
+  bossJumpVel: -300,
+  bossJumpPeriodMs: 2200,
+  bossHitCooldownMs: 700,
+  bossRangeTiles: 9,
 } as const
 
 export function createEnemy(kind: EnemyKind, tx: number, ty: number, dir: 1 | -1): Enemy {
@@ -50,9 +65,19 @@ export function createEnemy(kind: EnemyKind, tx: number, ty: number, dir: 1 | -1
     active: false,
     alive: true,
     timerMs: 0,
-    hp: kind === 'crocodile' ? ENEMY_TUNING.crocHp : 1,
+    hp: HP[kind],
     squashMs: 0,
+    homeY: (ty + 1) * TILE - h,
+    hitCooldownMs: 0,
   }
+}
+
+const HP: Record<EnemyKind, number> = {
+  broccoli: 1,
+  soup: 1,
+  crocodile: ENEMY_TUNING.crocHp,
+  flyer: 1,
+  boss: ENEMY_TUNING.bossHp,
 }
 
 export function updateEnemy(e: Enemy, grid: TileGrid, player: Player, dt: number): void {
@@ -66,6 +91,7 @@ export function updateEnemy(e: Enemy, grid: TileGrid, player: Player, dt: number
   }
 
   if (!e.active) return
+  if (e.hitCooldownMs > 0) e.hitCooldownMs = Math.max(0, e.hitCooldownMs - dt * 1000)
 
   switch (e.kind) {
     case 'broccoli':
@@ -92,6 +118,32 @@ export function updateEnemy(e: Enemy, grid: TileGrid, player: Player, dt: number
         }
       }
       e.vx = e.timerMs > 0 ? e.dir * ENEMY_TUNING.crocSpeed : 0
+      break
+    }
+
+    case 'flyer': {
+      // 중력을 받지 않고 사인 곡선으로 오르내린다
+      e.timerMs += dt * 1000
+      e.vx = e.dir * ENEMY_TUNING.flyerSpeed
+      const phase = (e.timerMs / ENEMY_TUNING.flyerPeriodMs) * Math.PI * 2
+      const target = e.homeY + Math.sin(phase) * ENEMY_TUNING.flyerAmpTiles * TILE
+      e.vy = 0
+      if (moveX(e, grid, dt)) e.dir = (e.dir * -1) as 1 | -1
+      e.y = target
+      e.onGround = false
+      return
+    }
+
+    case 'boss': {
+      e.timerMs += dt * 1000
+      const dist = Math.abs(player.x + player.w / 2 - (e.x + e.w / 2))
+      const engaged = dist <= ENEMY_TUNING.bossRangeTiles * TILE
+      if (engaged) e.dir = player.x < e.x ? -1 : 1
+      e.vx = engaged ? e.dir * ENEMY_TUNING.bossSpeed : 0
+      if (e.onGround && e.timerMs >= ENEMY_TUNING.bossJumpPeriodMs) {
+        e.vy = ENEMY_TUNING.bossJumpVel
+        e.timerMs = 0
+      }
       break
     }
   }

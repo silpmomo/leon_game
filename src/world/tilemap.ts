@@ -8,11 +8,17 @@ export class LevelParseError extends Error {
   }
 }
 
-export const TILE_CHARS = ['.', '#', 'B', 'b', '?', '@', '*', 'H', 'p', '|', 'o'] as const
+export const TILE_CHARS = [
+  '.', '#', 'B', 'b', '?', '@', '*', 'H', 'p', '|', 'o', '^', '~', 'S',
+] as const
 
-const SOLID = new Set<Tile>(['#', 'B', 'b', '?', '@', '*', 'H', 'p', '|'])
+const SOLID = new Set<Tile>(['#', 'B', 'b', '?', '@', '*', 'H', 'p', '|', 'S'])
 const BRICKS = new Set<Tile>(['B', 'b'])
 const QUESTIONS = new Set<Tile>(['?', '@', '*'])
+/** 닿으면 피격. 통과는 된다 */
+const SPIKES = new Set<Tile>(['^'])
+/** 닿으면 즉사. 통과는 된다 */
+const DEADLY = new Set<Tile>(['~'])
 
 export function isTileChar(c: string): c is Tile {
   return (TILE_CHARS as readonly string[]).includes(c)
@@ -24,6 +30,18 @@ export function isBrick(t: Tile): boolean {
 
 export function isQuestion(t: Tile): boolean {
   return QUESTIONS.has(t)
+}
+
+export function isSpike(t: Tile): boolean {
+  return SPIKES.has(t)
+}
+
+export function isDeadly(t: Tile): boolean {
+  return DEADLY.has(t)
+}
+
+export function isSpring(t: Tile): boolean {
+  return t === 'S'
 }
 
 export function idx(grid: TileGrid, tx: number, ty: number): number {
@@ -90,6 +108,28 @@ export function breakBrick(grid: TileGrid, tx: number, ty: number): void {
   const i = idx(grid, tx, ty)
   if (!isBrick(grid.cells[i]!)) return
   grid.broken[i] = 1
+}
+
+/**
+ * 사각형이 겹치는 타일 중 술어를 만족하는 첫 좌표.
+ * 가시·용암은 solid 가 아니라 충돌 해소를 거치지 않으므로 따로 훑어야 한다.
+ */
+export function findTileIn(
+  grid: TileGrid,
+  r: { x: number; y: number; w: number; h: number },
+  pred: (t: Tile) => boolean,
+  tileSize: number,
+): { tx: number; ty: number } | null {
+  const x0 = Math.floor(r.x / tileSize)
+  const x1 = Math.floor((r.x + r.w - 1e-6) / tileSize)
+  const y0 = Math.floor(r.y / tileSize)
+  const y1 = Math.floor((r.y + r.h - 1e-6) / tileSize)
+  for (let ty = y0; ty <= y1; ty++) {
+    for (let tx = x0; tx <= x1; tx++) {
+      if (pred(tileAt(grid, tx, ty))) return { tx, ty }
+    }
+  }
+  return null
 }
 
 export function useQuestion(grid: TileGrid, tx: number, ty: number): void {

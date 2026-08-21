@@ -5,6 +5,7 @@ import { SFX, createAudio } from '../src/core/audio'
 const RULE_EVENTS = [
   'stomp', 'hurt', 'die', 'coin', 'powerup',
   'bump', 'brick', 'fire', 'goal', 'extraLife', 'jump',
+  'spring', 'bossHit', 'bossDown',
 ] as const
 
 // ── 가짜 AudioContext ─────────────────────────────────────────

@@ -1,4 +1,4 @@
-import type { BestRecord, Mode, Rect } from '../types'
+import type { Mode, Progress, Rect } from '../types'
 import { VIEW_H, VIEW_W } from '../engine/tuning'
 
 const BTN_W = 110
@@ -31,7 +31,8 @@ const LABELS: Record<Mode, [string, string]> = {
 
 export function drawTitle(
   ctx: CanvasRenderingContext2D,
-  records: Record<Mode, BestRecord>,
+  progress: Record<Mode, Progress>,
+  totalStages: number,
 ): void {
   const sky = ctx.createLinearGradient(0, 0, 0, VIEW_H)
   sky.addColorStop(0, '#2b4a6f')
@@ -46,7 +47,7 @@ export function drawTitle(
   ctx.fillText('리온의 대모험', VIEW_W / 2, 46)
   ctx.font = '9px sans-serif'
   ctx.fillStyle = 'rgba(255,255,255,.8)'
-  ctx.fillText('1-1', VIEW_W / 2, 62)
+  ctx.fillText('전 10탄', VIEW_W / 2, 62)
 
   const r = rects()
   for (const mode of ['practice', 'challenge'] as Mode[]) {
@@ -63,14 +64,10 @@ export function drawTitle(
     ctx.font = '7px sans-serif'
     ctx.fillText(LABELS[mode][1], b.x + b.w / 2, b.y + 25)
 
-    const rec = records[mode]
+    const cleared = Object.values(progress[mode]).filter((r) => r.cleared).length
     ctx.fillStyle = 'rgba(255,255,255,.75)'
     ctx.font = '7px monospace'
-    ctx.fillText(
-      rec.cleared ? `최고 ${rec.bestScore} · 죽음 ${rec.fewestDeaths}` : '미클리어',
-      b.x + b.w / 2,
-      b.y + b.h + 12,
-    )
+    ctx.fillText(`${cleared} / ${totalStages} 탄 클리어`, b.x + b.w / 2, b.y + b.h + 12)
   }
 
   ctx.fillStyle = 'rgba(255,255,255,.6)'

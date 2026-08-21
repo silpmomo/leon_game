@@ -2,7 +2,7 @@ import type { GameState, InputState, LevelData, Mode, Platform } from '../types'
 import { EMPTY_INPUT } from '../types'
 import { TILE, TUNING } from '../engine/tuning'
 import { updateCamera } from '../engine/camera'
-import { parseTiles } from '../world/tilemap'
+import { isSpring, parseTiles, tileAt } from '../world/tilemap'
 import { createPlayer, updatePlayer } from '../world/player'
 import {
   activateVisible,
@@ -18,6 +18,7 @@ import {
   resolveBalls,
   resolveCoins,
   resolveEnemies,
+  resolveHazards,
   resolveItems,
   type RuleEvent,
 } from './rules'
@@ -124,6 +125,15 @@ export function updateFrame(s: GameState, input: InputState, dt: number): RuleEv
   }
   if (step.landed) s.combo = 0
 
+  // ── 3.5 점프대: 위에서 밟으면 최고 점프보다 높이 튕긴다
+  if (step.vertical.hit === 'ground' && isSpring(tileAt(s.grid, step.vertical.tx, step.vertical.ty))) {
+    s.player.vy = TUNING.springVel
+    s.player.onGround = false
+    s.player.rising = true
+    s.combo = 0
+    events.push('spring')
+  }
+
   // ── 4. 축구공 발사
   if (effective.firePressed && s.player.power === 'ball' && aliveBalls(s) < MAX_BALLS) {
     s.balls.push(createBall(s.player))
@@ -140,6 +150,7 @@ export function updateFrame(s: GameState, input: InputState, dt: number): RuleEv
   events.push(...resolveItems(s))
   events.push(...resolveBalls(s))
   events.push(...resolveEnemies(s, effective.jump))
+  events.push(...resolveHazards(s))
 
   // ── 7. 골: 깃대 x를 넘으면 슬라이딩 시작
   if (!s.player.sliding && s.player.x + s.player.w / 2 >= s.level.goal.x * TILE) {

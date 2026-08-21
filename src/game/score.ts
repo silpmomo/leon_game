@@ -4,6 +4,7 @@ export const SCORE = {
   flagMax: 5000,
   timeBonusPerSec: 50,
   coinsPerLife: 100,
+  bossKill: 5000,
 } as const
 
 export function stompScore(combo: number): number {

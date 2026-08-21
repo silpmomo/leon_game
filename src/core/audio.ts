@@ -94,6 +94,27 @@ export const SFX: Record<string, SfxSpec> = {
 
   // 메뉴 선택
   select: { wave: 'square', notes: [N.G4, N.C5], noteMs: 55, gain: 0.22 },
+
+  // 점프대 — 점프보다 크게 튀어오르는 느낌
+  spring: {
+    wave: 'square',
+    notes: [N.C4, N.G4, N.E5, N.C6],
+    noteMs: 45,
+    gain: 0.24,
+    slide: true,
+  },
+
+  // 보스 피격 — 묵직한 타격
+  bossHit: { wave: 'noise', notes: [1], noteMs: 130, gain: 0.3, noise: 'thud' },
+
+  // 보스 격파 — 길게 무너지는 소리
+  bossDown: {
+    wave: 'sawtooth',
+    notes: [N.G4, N.E4, N.C4, N.G3, N.E3, N.C3, N.G2],
+    noteMs: 150,
+    gain: 0.28,
+    slide: true,
+  },
 }
 
 // ── BGM ────────────────────────────────────────────────────────

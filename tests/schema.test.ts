@@ -6,6 +6,8 @@ import type { LevelData } from '../src/types'
 function level(over: Partial<LevelData> = {}): LevelData {
   return {
     name: 't',
+    id: 't',
+    theme: 'day' as const,
     width: 12,
     height: 6,
     spawn: { x: 1, y: 4 },

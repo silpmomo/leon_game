@@ -49,6 +49,9 @@ export type Tile =
   | 'p' // 파이프 상단
   | '|' // 파이프 몸통
   | 'o' // 코인 (파싱 시 Coin으로 변환되고 타일은 '.'가 된다)
+  | '^' // 가시 — 닿으면 피격, 밟기 불가. solid 아님
+  | '~' // 용암/독물 — 닿으면 즉사. solid 아님
+  | 'S' // 점프대 — 위에서 밟으면 크게 튕긴다. solid
 
 export type TileGrid = {
   w: number
@@ -61,10 +64,13 @@ export type TileGrid = {
   used: Uint8Array
 }
 
+/** 스테이지 배경·타일 색 묶음 */
+export type Theme = 'day' | 'underground' | 'night' | 'castle'
+
 /** small → big → ball. 'ball'은 "큰 상태 + 축구공 보유"를 뜻한다. */
 export type PowerState = 'small' | 'big' | 'ball'
 export type Mode = 'practice' | 'challenge'
-export type Scene = 'title' | 'playing' | 'dead' | 'clear' | 'gameover'
+export type Scene = 'title' | 'select' | 'playing' | 'dead' | 'clear' | 'gameover'
 
 export type Player = Body & {
   power: PowerState
@@ -84,7 +90,7 @@ export type Player = Body & {
   sliding: boolean
 }
 
-export type EnemyKind = 'broccoli' | 'soup' | 'crocodile'
+export type EnemyKind = 'broccoli' | 'soup' | 'crocodile' | 'flyer' | 'boss'
 
 export type Enemy = Body & {
   kind: EnemyKind
@@ -99,6 +105,10 @@ export type Enemy = Body & {
   hp: number
   /** 밟혀서 납작해진 뒤 사라지기까지의 잔여 시간(ms). 0이면 미해당 */
   squashMs: number
+  /** 나는 적의 상하 진동 기준 y */
+  homeY: number
+  /** 피격 후 무적 남은 시간(ms). 보스가 연속 피격되지 않게 한다 */
+  hitCooldownMs: number
 }
 
 export type Coin = Rect & { taken: boolean }
@@ -123,11 +133,20 @@ export type Platform = Body & {
 export type Bump = { tx: number; ty: number; ms: number }
 
 export type LevelEntity =
-  | { type: 'broccoli' | 'soup' | 'crocodile'; x: number; y: number; dir?: 1 | -1 }
+  | {
+      type: 'broccoli' | 'soup' | 'crocodile' | 'flyer' | 'boss'
+      x: number
+      y: number
+      dir?: 1 | -1
+    }
   | { type: 'platform'; x: number; y: number; axis: 'x' | 'y'; range: number; speed: number }
 
 export type LevelData = {
+  /** 화면에 보이는 이름 (예: "3탄") */
   name: string
+  /** 파일 식별자 (예: "stage-03") */
+  id: string
+  theme: Theme
   width: number
   height: number
   spawn: { x: number; y: number }
@@ -137,13 +156,16 @@ export type LevelData = {
   checkpoints: number[]
 }
 
-/** 모드별 최고기록. 이름이 전역 Record와 겹치지 않게 BestRecord로 쓴다. */
+/** 스테이지별 최고기록. 이름이 전역 Record와 겹치지 않게 BestRecord로 쓴다. */
 export type BestRecord = {
   cleared: boolean
   bestScore: number
   bestTimeMs: number
   fewestDeaths: number
 }
+
+/** 모드별 진행도 — 스테이지 id → 기록 */
+export type Progress = Record<string, BestRecord>
 
 export type GameState = {
   scene: Scene

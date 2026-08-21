@@ -30,6 +30,8 @@ export const TUNING = {
   stompBounceHeld: -280, // px/s
   stompGrace: 4, // px — 밟기 판정 여유
   invulnMs: 1500,
+  /** 점프대 튕김 속도. 최고 점프보다 확실히 높다 */
+  springVel: -520,
   deathFallMargin: 32, // px — 레벨 바닥 아래 이 거리를 넘으면 낙하사
 } as const
 

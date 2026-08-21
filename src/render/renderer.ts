@@ -1,4 +1,4 @@
-import type { Enemy, GameState, Player, PowerState, Tile } from '../types'
+import type { Enemy, GameState, Player, PowerState, Theme, Tile } from '../types'
 import { TILE, VIEW_H, VIEW_W } from '../engine/tuning'
 import { tileAt } from '../world/tilemap'
 import { BUTTON_ALPHA, buttonRects } from '../ui/controls'
@@ -14,6 +14,17 @@ const TILE_FRAME: Partial<Record<Tile, string>> = {
   H: 'hard',
   p: 'pipeTop',
   '|': 'pipeBody',
+  '^': 'spike',
+  '~': 'lava',
+  S: 'spring',
+}
+
+/** 테마별 하늘 그라디언트와 타일 색조 */
+const THEME: Record<Theme, { sky: [string, string, string]; tint: string | null }> = {
+  day: { sky: ['#8ed0f2', '#bfe4f7', '#dcf0f9'], tint: null },
+  underground: { sky: ['#10131c', '#161c2b', '#1d2436'], tint: 'rgba(90,127,184,.35)' },
+  night: { sky: ['#141a33', '#222b52', '#33406f'], tint: 'rgba(91,91,168,.28)' },
+  castle: { sky: ['#2a1114', '#3d1a1c', '#4f2422'], tint: 'rgba(192,90,74,.3)' },
 }
 
 /** 얼굴/몸통 비율. 합이 스프라이트 전체 높이가 된다. */
@@ -90,6 +101,12 @@ function enemyFrame(e: Enemy, t: number): string {
       return e.onGround ? 'soupCrouch' : 'soupJump'
     case 'crocodile':
       return `crocodile${Math.floor(t / 6) % 2}`
+    case 'flyer':
+      return `flyer${Math.floor(t / 5) % 2}`
+    case 'boss':
+      return e.onGround ? 'boss0' : 'boss1'
+    default:
+      return 'broccoli0'
   }
 }
 
@@ -99,13 +116,25 @@ export function drawWorld(
   atlas: LoadedAtlas,
   tick: number,
 ): void {
+  const theme = THEME[s.level.theme] ?? THEME.day
+
   // 하늘
   const sky = ctx.createLinearGradient(0, 0, 0, VIEW_H)
-  sky.addColorStop(0, '#8ed0f2')
-  sky.addColorStop(0.78, '#bfe4f7')
-  sky.addColorStop(1, '#dcf0f9')
+  sky.addColorStop(0, theme.sky[0])
+  sky.addColorStop(0.78, theme.sky[1])
+  sky.addColorStop(1, theme.sky[2])
   ctx.fillStyle = sky
   ctx.fillRect(0, 0, VIEW_W, VIEW_H)
+
+  // 밤·성 테마의 별·불빛 — 카메라에 따라 천천히 흐른다
+  if (s.level.theme === 'night' || s.level.theme === 'castle') {
+    ctx.fillStyle = s.level.theme === 'night' ? 'rgba(255,255,255,.5)' : 'rgba(255,170,90,.4)'
+    for (let i = 0; i < 26; i++) {
+      const bx = (i * 97 - s.camera.x * 0.25) % (VIEW_W + 40)
+      const by = 8 + ((i * 53) % 70)
+      ctx.fillRect(bx < 0 ? bx + VIEW_W + 40 : bx, by, 2, 2)
+    }
+  }
 
   ctx.save()
   ctx.translate(-Math.round(s.camera.x), -Math.round(s.camera.y))
@@ -120,12 +149,18 @@ export function drawWorld(
   for (let tx = tx0; tx <= tx1; tx++) {
     for (let ty = 0; ty < s.grid.h; ty++) {
       const t = tileAt(s.grid, tx, ty)
-      const name = TILE_FRAME[t]
+      let name = TILE_FRAME[t]
       if (!name) continue
+      // 용암은 3프레임으로 출렁인다
+      if (t === '~') name = ['lava', 'lava1', 'lava2'][Math.floor(tick / 10) % 3]!
       // 아래에서 친 블록은 살짝 위로 튕긴다
       const bump = bumpAt.get(`${tx},${ty}`)
       const lift = bump ? Math.round(Math.sin((bump / 140) * Math.PI) * 4) : 0
       draw(ctx, atlas, name, tx * TILE, ty * TILE - lift, TILE, TILE)
+      if (theme.tint && t !== '~' && t !== '^') {
+        ctx.fillStyle = theme.tint
+        ctx.fillRect(tx * TILE, ty * TILE - lift, TILE, TILE)
+      }
     }
   }
 

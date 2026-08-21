@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import raw from '../src/levels/1-1.json'
+import raw from '../src/levels/stage-01.json'
 import { maxPitWidth, validateLevel } from '../src/levels/schema'
 import { parseTiles, solidAt, tileAt } from '../src/world/tilemap'
 import { TILE, derive } from '../src/engine/tuning'
@@ -147,8 +147,26 @@ describe('구간 설계 의도', () => {
     expect(level.entities.filter((e) => e.x >= 190)).toEqual([])
   })
 
-  it('체크포인트는 각 구간 입구에 있다', () => {
-    expect(level.checkpoints).toEqual([70, 118, 142, 168])
+  it('체크포인트가 4개이고 레벨에 고르게 퍼져 있다', () => {
+    // 정확한 좌표는 구간 폭에서 자동으로 도출된다(make_levels.py).
+    // 손으로 박아두면 구간을 하나 넓힐 때마다 어긋나므로 성질만 검사한다.
+    expect(level.checkpoints).toHaveLength(4)
+    let prev = 0
+    for (const cp of level.checkpoints) {
+      expect(cp).toBeGreaterThan(prev)
+      expect(cp).toBeLessThan(level.width)
+      prev = cp
+    }
+    // 첫 체크포인트는 레벨 앞 1/3 안, 마지막은 뒤 1/3 안
+    expect(level.checkpoints[0]!).toBeLessThan(level.width / 3)
+    expect(level.checkpoints[3]!).toBeGreaterThan((level.width * 2) / 3)
+  })
+
+  it('모든 체크포인트가 설 수 있는 자리다', () => {
+    for (const cp of level.checkpoints) {
+      expect(solidAt(grid, cp, 10), `체크포인트 ${cp} 아래가 땅이 아니다`).toBe(true)
+      expect(solidAt(grid, cp, 9), `체크포인트 ${cp} 가 블록 안`).toBe(false)
+    }
   })
 
   it('모든 적이 땅 위에 서 있다', () => {

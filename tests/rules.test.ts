@@ -19,6 +19,8 @@ const ROWS = ['..........', '..B?@*H...', '..........', '##########']
 
 const LEVEL: LevelData = {
   name: 'test',
+  id: 'test',
+  theme: 'day',
   width: 10,
   height: 4,
   spawn: { x: 1, y: 2 },

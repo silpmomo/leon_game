@@ -17,6 +17,8 @@ const DT = 1 / 60
 
 const LEVEL: LevelData = {
   name: 'test',
+  id: 'test',
+  theme: 'day',
   width: 30,
   height: 6,
   spawn: { x: 1, y: 4 },

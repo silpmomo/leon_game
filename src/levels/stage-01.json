@@ -1,5 +1,7 @@
 {
-  "name": "1-1",
+  "name": "1탄",
+  "id": "stage-01",
+  "theme": "day",
   "width": 200,
   "height": 12,
   "spawn": {
@@ -46,12 +48,14 @@
     {
       "type": "soup",
       "x": 98,
-      "y": 9
+      "y": 9,
+      "dir": -1
     },
     {
       "type": "soup",
       "x": 106,
-      "y": 9
+      "y": 9,
+      "dir": -1
     },
     {
       "type": "crocodile",
@@ -61,19 +65,19 @@
     },
     {
       "type": "platform",
-      "x": 149,
+      "x": 150,
       "y": 7,
       "axis": "x",
-      "range": 2,
-      "speed": 40
+      "range": 0,
+      "speed": 0
     },
     {
       "type": "platform",
       "x": 154,
       "y": 6,
-      "axis": "y",
-      "range": 2,
-      "speed": 30
+      "axis": "x",
+      "range": 0,
+      "speed": 0
     },
     {
       "type": "broccoli",
@@ -101,9 +105,9 @@
     }
   ],
   "checkpoints": [
-    70,
-    118,
-    142,
-    168
+    40,
+    80,
+    120,
+    160
   ]
 }

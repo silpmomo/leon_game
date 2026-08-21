@@ -1,6 +1,6 @@
 import type { LevelData, TileGrid } from '../types'
 import { TILE, derive } from '../engine/tuning'
-import { LevelParseError, parseTiles, solidAt } from '../world/tilemap'
+import { LevelParseError, isDeadly, parseTiles, solidAt, tileAt } from '../world/tilemap'
 
 export type Issue = { rule: number; message: string }
 
@@ -78,6 +78,7 @@ export function validateLevel(level: LevelData): Issue[] {
     .filter((e): e is Extract<typeof e, { type: 'platform' }> => e.type === 'platform')
     .map((e) => [e.x - e.range - 3, e.x + e.range + 3] as const)
 
+  // 용암은 solid 가 아니므로 이미 구덩이로 잡힌다. 발판이 덮으면 예외.
   let pitStart = -1
   for (let tx = 0; tx <= level.width; tx++) {
     const isPit = tx < level.width && !solidAt(g, tx, groundRow)
@@ -134,6 +135,51 @@ export function validateLevel(level: LevelData): Issue[] {
   }
   if (level.goal.flagTop < 0 || level.goal.flagTop >= level.height) {
     issues.push({ rule: 7, message: `goal.flagTop ${level.goal.flagTop} 가 격자 밖이다` })
+  }
+
+  // ── 규칙 8: 용암은 지면 두 줄을 모두 채워야 한다.
+  //    한 줄만 채우면 그 위를 걸어 지나갈 수 있어 위험이 사라진다.
+  for (let tx = 0; tx < level.width; tx++) {
+    const bottom = isDeadly(tileAt(g, tx, level.height - 1))
+    const above = isDeadly(tileAt(g, tx, level.height - 2))
+    if (bottom !== above) {
+      issues.push({
+        rule: 8,
+        message: `${tx}열의 용암이 지면 한 줄만 채운다 (두 줄 모두 채워야 한다)`,
+      })
+    }
+  }
+
+  // ── 규칙 9: 가시는 바닥에 붙어 있어야 한다 (공중에 뜬 가시는 보이지 않는 함정)
+  for (let tx = 0; tx < level.width; tx++) {
+    for (let ty = 0; ty < level.height; ty++) {
+      if (tileAt(g, tx, ty) !== '^') continue
+      if (!solidAt(g, tx, ty + 1)) {
+        issues.push({ rule: 9, message: `가시 (${tx}, ${ty}) 아래가 땅이 아니다` })
+      }
+    }
+  }
+
+  // ── 규칙 10: 오를 수 없는 단차가 없어야 한다.
+  //    최고 점프 높이(73px ≈ 4타일)보다 높은 계단은 넘을 방법이 없다.
+  //    높이 5타일 파이프가 이 규칙에 걸린다 — 80px 를 올라야 하는데
+  //    점프로는 73px 밖에 못 오른다.
+  const maxClimb = Math.floor(derive().jumpHeight / TILE)
+  let prevTop: number | null = null
+  for (let tx = 0; tx < level.width; tx++) {
+    const top = floorTopAt(g, tx, level.height)
+    if (top !== null && prevTop !== null) {
+      const rise = prevTop - top // 위로 갈수록 ty 가 작아진다
+      if (rise > maxClimb) {
+        issues.push({
+          rule: 10,
+          message:
+            `${tx}열에서 ${rise}타일 단차 — 점프로 오를 수 있는 최대 `
+            + `${maxClimb}타일(${Math.round(derive().jumpHeight)}px)을 넘는다`,
+        })
+      }
+    }
+    if (top !== null) prevTop = top
   }
 
   return issues

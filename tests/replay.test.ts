@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import level from '../src/levels/1-1.json'
+import level from '../src/levels/stage-01.json'
 import {
   compress,
   expand,

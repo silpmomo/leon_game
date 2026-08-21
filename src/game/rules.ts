@@ -1,7 +1,16 @@
 import type { Enemy, EnemyKind, GameState, Player, PowerState } from '../types'
 import { TILE, TUNING } from '../engine/tuning'
 import { overlaps } from '../engine/aabb'
-import { breakBrick, isBrick, isQuestion, tileAt, useQuestion } from '../world/tilemap'
+import {
+  breakBrick,
+  findTileIn,
+  isBrick,
+  isDeadly,
+  isQuestion,
+  isSpike,
+  tileAt,
+  useQuestion,
+} from '../world/tilemap'
 import { ENEMY_TUNING, createItem } from '../world/entities'
 import { resizePlayer } from '../world/player'
 import { SCORE, stompScore } from './score'
@@ -18,8 +27,12 @@ export type RuleEvent =
   | 'goal'
   | 'extraLife'
   | 'jump'
+  | 'spring'
+  | 'bossHit'
+  | 'bossDown'
 
-const STOMPABLE = new Set<EnemyKind>(['broccoli', 'soup'])
+/** 위에서 밟아 없앨 수 있는 적. 악어는 가시가 있고 보스는 너무 크다 */
+const STOMPABLE = new Set<EnemyKind>(['broccoli', 'soup', 'flyer'])
 
 export function canStomp(p: Player, e: Enemy): boolean {
   if (!STOMPABLE.has(e.kind)) return false
@@ -123,17 +136,41 @@ export function resolveBalls(s: GameState): RuleEvent[] {
     if (!b.alive) continue
     for (const e of s.enemies) {
       if (!e.alive || !e.active || e.squashMs > 0) continue
+      if (e.hitCooldownMs > 0) continue
       if (!overlaps(b, e)) continue
       b.alive = false
       e.hp -= 1
+      // 쿨다운은 보스에만. 작은 적은 hp 1~2라 쿨다운을 걸면
+      // 연속 사격이 막혀 오히려 이상해진다.
+      if (e.kind === 'boss') e.hitCooldownMs = ENEMY_TUNING.bossHitCooldownMs
+      if (e.kind === 'boss') events.push(e.hp <= 0 ? 'bossDown' : 'bossHit')
       if (e.hp <= 0) {
         e.alive = false
-        s.score += stompScore(0)
+        s.score += e.kind === 'boss' ? SCORE.bossKill : stompScore(0)
       }
       break
     }
   }
   return events
+}
+
+/**
+ * 가시·용암 타일 판정.
+ *
+ * 두 타일은 solid 가 아니라 충돌 해소를 거치지 않으므로, 몸이 겹치는 타일을
+ * 직접 훑어야 한다. 용암은 무적을 무시하고 즉사시킨다.
+ */
+export function resolveHazards(s: GameState): RuleEvent[] {
+  const p = s.player
+  // 발끝만 살짝 닿는 것으로 죽지 않게 히트박스를 조금 줄인다
+  const box = { x: p.x + 2, y: p.y + 2, w: p.w - 4, h: p.h - 3 }
+
+  if (findTileIn(s.grid, box, isDeadly, TILE)) {
+    s.deaths += 1
+    return ['die']
+  }
+  if (findTileIn(s.grid, box, isSpike, TILE)) return hurtPlayer(s)
+  return []
 }
 
 /** 아래에서 블록을 쳤을 때 */

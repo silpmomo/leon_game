@@ -8,6 +8,8 @@ const input = (over: Partial<InputState> = {}): InputState => ({ ...EMPTY_INPUT,
 
 const LEVEL: LevelData = {
   name: 'test',
+  id: 'test',
+  theme: 'day',
   width: 20,
   height: 6,
   spawn: { x: 2, y: 4 },
