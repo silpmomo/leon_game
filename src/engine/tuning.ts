@@ -15,6 +15,13 @@ export const TUNING = {
   jumpVel: -320, // px/s
   gravityRise: 700, // px/s^2 (버튼 유지 중 상승)
   gravityFall: 1400, // px/s^2
+  /**
+   * 상승 중 버튼을 뗀 순간 남은 상승 속도에 곱하는 값.
+   * 중력만 바꾸면 최소 점프가 320^2/(2*1400) = 2.3타일로 고정되어
+   * 가변 점프 폭이 2.3~4.7타일밖에 안 나온다. 속도를 잘라야
+   * "톡 치면 1타일 미만" 이 가능해진다.
+   */
+  jumpCut: 0.45,
   maxFall: 400, // px/s
   coyoteMs: 80,
   jumpBufferMs: 120,

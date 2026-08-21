@@ -101,6 +101,32 @@ describe('moveY', () => {
     expect(b.y).toBe(1 * TILE)
   })
 
+  it('땅에 가만히 서 있으면 onGround가 흔들리지 않는다', () => {
+    // 회귀: vy가 0으로 떨어지면 moveY의 두 분기를 모두 건너뛰어
+    // onGround가 매 프레임 번갈아 false가 되던 버그.
+    const grid = flat()
+    const b = body(16, 0)
+    for (let i = 0; i < 60 && !b.onGround; i++) {
+      applyGravity(b, DT, false)
+      moveY(b, grid, DT, false)
+    }
+    expect(b.onGround).toBe(true)
+
+    for (let i = 0; i < 30; i++) {
+      applyGravity(b, DT, false)
+      moveY(b, grid, DT, false)
+      expect(b.onGround, `프레임 ${i} 에서 공중 판정이 되었다`).toBe(true)
+    }
+  })
+
+  it('vy가 정확히 0인 채로 호출해도 서 있는 상태를 유지한다', () => {
+    const grid = flat()
+    const b = body(16, 3 * TILE - 21)
+    b.vy = 0
+    moveY(b, grid, DT, false)
+    expect(b.onGround).toBe(true)
+  })
+
   it('땅에서 떨어지면 onGround가 꺼진다', () => {
     const grid = parseTiles(['......', '......', '###...', '###...']).grid
     const b = body(0, 0)
