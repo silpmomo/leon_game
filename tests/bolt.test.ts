@@ -304,18 +304,24 @@ describe('빔 수명', () => {
 })
 
 describe('전기 배치', () => {
-  it('6탄부터 10탄까지 전기 블록이 하나씩 있다', () => {
-    for (const lv of STAGES.slice(5)) {
-      const n = lv.tiles.reduce((a, r) => a + (r.match(/E/g)?.length ?? 0), 0)
-      expect(n, `${lv.name} 에 전기 블록이 없다`).toBeGreaterThan(0)
+  const boltBlocks = (lv: (typeof STAGES)[number]): number =>
+    lv.tiles.reduce((a, r) => a + (r.match(/E/g)?.length ?? 0), 0)
+
+  it('1-6 부터 1-10 까지 전기 블록이 하나씩 있다', () => {
+    for (const lv of STAGES.slice(5, 10)) {
+      expect(boltBlocks(lv), `${lv.name} 에 전기 블록이 없다`).toBeGreaterThan(0)
     }
   })
 
-  it('1탄부터 5탄에는 전기가 없다 (뒤에서 처음 나온다)', () => {
+  it('1-1 부터 1-5 에는 전기가 없다 (뒤에서 처음 나온다)', () => {
     for (const lv of STAGES.slice(0, 5)) {
-      const n = lv.tiles.reduce((a, r) => a + (r.match(/E/g)?.length ?? 0), 0)
-      expect(n, `${lv.name} 에 전기가 너무 일찍 나온다`).toBe(0)
+      expect(boltBlocks(lv), `${lv.name} 에 전기가 너무 일찍 나온다`).toBe(0)
     }
+  })
+
+  it('2월드에도 전기가 나온다', () => {
+    const withBolt = STAGES.slice(10).filter((lv) => boltBlocks(lv) > 0)
+    expect(withBolt.length).toBeGreaterThan(0)
   })
 
   it('E 블록은 solid 다 (밟고 설 수 있고 아래에서 칠 수 있다)', () => {

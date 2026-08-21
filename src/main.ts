@@ -2,11 +2,11 @@ import atlasJson from './assets/sprites/atlas.json'
 import sheetUrl from './assets/sprites/sprites.png'
 import type { LevelData, Mode, Progress } from './types'
 import { VIEW_H, VIEW_W } from './engine/tuning'
-import { STAGES } from './levels/index'
+import { STAGES, STAGES_PER_WORLD, WORLD_COUNT, worldOf } from './levels/index'
 import { assertValidLevel } from './levels/schema'
 import { newGameState, updateFrame } from './game/update'
 import { advanceScene, toRecord } from './game/scenes'
-import { furthestUnlocked } from './game/unlock'
+import { furthestUnlocked, isUnlocked } from './game/unlock'
 import { createAudio } from './core/audio'
 import { createInput } from './core/input'
 import { createLoop } from './core/loop'
@@ -16,7 +16,12 @@ import { drawDebug } from './render/debugOverlay'
 import { MUTE_RECT, drawHud } from './render/hud'
 import { drawRotateOverlay, isPortrait } from './ui/orientation'
 import { drawTitle, titleHitTest } from './ui/titleScreen'
-import { backHitTest, drawStageSelect, stageHitTest } from './ui/stageSelect'
+import {
+  backHitTest,
+  drawStageSelect,
+  stageHitTest,
+  worldTabHitTest,
+} from './ui/stageSelect'
 import { clearHitTest, drawClear } from './ui/clearScreen'
 import { loadMuted, loadProgress, saveMuted, saveProgress } from './storage'
 import { createPerfWatch, pickScale } from './perf'
@@ -44,6 +49,8 @@ const progress: Record<Mode, Progress> = {
 
 let mode: Mode = 'practice'
 let stageIndex = 0
+/** 스테이지 선택 화면에서 보고 있는 월드 (0부터) */
+let selWorld = 0
 let state = newGameState(STAGES[0] as LevelData, 'practice')
 state.scene = 'title'
 state.muted = loadMuted()
@@ -113,12 +120,18 @@ const modeLabel = (m: Mode): string => (m === 'practice' ? '연습' : '도전')
 function startStage(i: number): void {
   const muted = state.muted
   stageIndex = Math.max(0, Math.min(STAGES.length - 1, i))
+  selWorld = worldOf(stageIndex)
   state = newGameState(STAGES[stageIndex] as LevelData, mode)
   state.muted = muted
   input.reset()
   audio.unlock()
   audio.play('select')
   if (!muted) audio.startBgm()
+}
+
+/** 월드의 첫 탄이 열려 있는가 */
+function isUnlockedWorld(w: number): boolean {
+  return isUnlocked(STAGE_IDS, w * STAGES_PER_WORLD, progress[mode])
 }
 
 function goSelect(): void {
@@ -156,6 +169,7 @@ function handleTap(px: number, py: number): boolean {
       mode = picked
       // 이미 진행한 데까지 열어두고 그 앞에서 시작하게 한다
       stageIndex = furthestUnlocked(STAGE_IDS, progress[mode])
+      selWorld = worldOf(stageIndex)
       goSelect()
     }
     return false
@@ -167,7 +181,12 @@ function handleTap(px: number, py: number): boolean {
       input.reset()
       return false
     }
-    const i = stageHitTest(px, py, STAGES, progress[mode])
+    const w = worldTabHitTest(px, py, STAGES, progress[mode], WORLD_COUNT)
+    if (w !== null) {
+      selWorld = w
+      return false
+    }
+    const i = stageHitTest(px, py, STAGES, progress[mode], selWorld)
     if (i !== null) startStage(i)
     return false
   }
@@ -204,7 +223,15 @@ window.addEventListener('keydown', (e) => {
   if (state.scene === 'title' && (e.code === 'Space' || e.code === 'Enter')) {
     mode = 'practice'
     stageIndex = furthestUnlocked(STAGE_IDS, progress[mode])
+    selWorld = worldOf(stageIndex)
     goSelect()
+    return
+  }
+  // 선택 화면에서 좌우 키로 월드를 넘긴다
+  if (state.scene === 'select' && (e.code === 'ArrowLeft' || e.code === 'ArrowRight')) {
+    const next = selWorld + (e.code === 'ArrowRight' ? 1 : -1)
+    if (next >= 0 && next < WORLD_COUNT
+        && isUnlockedWorld(next)) selWorld = next
     return
   }
   if (state.scene === 'select' && (e.code === 'Space' || e.code === 'Enter')) {
@@ -287,7 +314,7 @@ const loop = createLoop({
       return
     }
     if (state.scene === 'select') {
-      drawStageSelect(ctx, STAGES, progress[mode], modeLabel(mode))
+      drawStageSelect(ctx, STAGES, progress[mode], modeLabel(mode), selWorld, WORLD_COUNT)
       return
     }
 

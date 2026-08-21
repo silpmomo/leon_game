@@ -9,10 +9,10 @@ export class LevelParseError extends Error {
 }
 
 export const TILE_CHARS = [
-  '.', '#', 'B', 'b', '?', '@', '*', 'H', 'p', '|', 'o', '^', '~', 'S', 'E',
+  '.', '#', 'B', 'b', '?', '@', '*', 'H', 'p', '|', 'o', '^', '~', 'S', 'E', 'I',
 ] as const
 
-const SOLID = new Set<Tile>(['#', 'B', 'b', '?', '@', '*', 'E', 'H', 'p', '|', 'S'])
+const SOLID = new Set<Tile>(['#', 'B', 'b', '?', '@', '*', 'E', 'H', 'p', '|', 'S', 'I'])
 const BRICKS = new Set<Tile>(['B', 'b'])
 const QUESTIONS = new Set<Tile>(['?', '@', '*', 'E'])
 /** 닿으면 피격. 통과는 된다 */
@@ -42,6 +42,10 @@ export function isDeadly(t: Tile): boolean {
 
 export function isSpring(t: Tile): boolean {
   return t === 'S'
+}
+
+export function isIce(t: Tile): boolean {
+  return t === 'I'
 }
 
 export function idx(grid: TileGrid, tx: number, ty: number): number {

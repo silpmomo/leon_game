@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { STAGES, stageAt, stageIndexById } from '../src/levels/index'
+import {
+  STAGES,
+  STAGES_PER_WORLD,
+  WORLD_COUNT,
+  stageAt,
+  stageIndexById,
+  stagesOfWorld,
+  worldOf,
+} from '../src/levels/index'
 import { validateLevel } from '../src/levels/schema'
 import { parseTiles, solidAt, tileAt } from '../src/world/tilemap'
 import { TILE, derive } from '../src/engine/tuning'
@@ -8,35 +16,68 @@ import { checkReachable } from './helpers/reach'
 import { canComplete } from './helpers/bot'
 
 describe('스테이지 목록', () => {
-  it('10탄이 있다', () => {
-    expect(STAGES).toHaveLength(10)
+  it('두 월드에 각 10탄씩 20탄이 있다', () => {
+    expect(STAGES).toHaveLength(20)
+    expect(WORLD_COUNT).toBe(2)
+    expect(STAGES_PER_WORLD).toBe(10)
   })
 
-  it('id가 stage-01 ~ stage-10 이고 중복이 없다', () => {
+  it('id가 stage-01 ~ stage-20 이고 중복이 없다', () => {
     const ids = STAGES.map((s) => s.id)
-    expect(ids).toEqual([
-      'stage-01', 'stage-02', 'stage-03', 'stage-04', 'stage-05',
-      'stage-06', 'stage-07', 'stage-08', 'stage-09', 'stage-10',
-    ])
-    expect(new Set(ids).size).toBe(10)
+    expect(ids).toEqual(
+      Array.from({ length: 20 }, (_, i) => `stage-${String(i + 1).padStart(2, '0')}`),
+    )
+    expect(new Set(ids).size).toBe(20)
   })
 
-  it('이름이 1탄 ~ 10탄이다', () => {
-    expect(STAGES.map((s) => s.name)).toEqual(
-      ['1탄', '2탄', '3탄', '4탄', '5탄', '6탄', '7탄', '8탄', '9탄', '10탄'],
-    )
+  it('이름이 1-1 ~ 1-10, 2-1 ~ 2-10 이다', () => {
+    expect(STAGES.map((s) => s.name)).toEqual([
+      '1-1', '1-2', '1-3', '1-4', '1-5', '1-6', '1-7', '1-8', '1-9', '1-10',
+      '2-1', '2-2', '2-3', '2-4', '2-5', '2-6', '2-7', '2-8', '2-9', '2-10',
+    ])
+  })
+
+  it('id 는 그대로 두어 기존 진행도가 보존된다', () => {
+    // 1월드 이름을 1탄 → 1-1 로 바꿀 때 id 를 건드리면 진행도가 날아간다
+    expect(STAGES[0]!.id).toBe('stage-01')
+    expect(STAGES[9]!.id).toBe('stage-10')
   })
 
   it('테마가 진행에 따라 바뀐다', () => {
     const themes = STAGES.map((s) => s.theme)
-    expect(new Set(themes).size).toBeGreaterThanOrEqual(3)
+    expect(new Set(themes).size).toBeGreaterThanOrEqual(4)
     expect(themes[0]).toBe('day')
     expect(themes[9]).toBe('castle')
+    expect(themes[19]).toBe('castle')
+  })
+
+  it('2월드는 얼음으로 시작한다', () => {
+    expect(STAGES[10]!.theme).toBe('ice')
+    expect(STAGES[10]!.name).toBe('2-1')
+  })
+
+  it('월드 구분이 맞는다', () => {
+    expect(worldOf(0)).toBe(0)
+    expect(worldOf(9)).toBe(0)
+    expect(worldOf(10)).toBe(1)
+    expect(worldOf(19)).toBe(1)
+    expect(stagesOfWorld(0)).toHaveLength(10)
+    expect(stagesOfWorld(1)).toHaveLength(10)
+    expect(stagesOfWorld(1)[0]!.name).toBe('2-1')
+  })
+
+  it('2월드가 1월드보다 적이 많다', () => {
+    const count = (from: number) =>
+      STAGES.slice(from, from + 10).reduce(
+        (a, s) => a + s.entities.filter((e) => e.type !== 'platform').length,
+        0,
+      )
+    expect(count(10)).toBeGreaterThan(count(0))
   })
 
   it('stageAt은 범위를 벗어난 인덱스를 묶는다', () => {
     expect(stageAt(-5).id).toBe('stage-01')
-    expect(stageAt(99).id).toBe('stage-10')
+    expect(stageAt(99).id).toBe('stage-20')
   })
 
   it('stageIndexById는 없는 id에 0을 준다', () => {
@@ -102,7 +143,7 @@ describe.each(STAGES.map((s, i) => [s.name, s, i] as const))(
     it('난이도가 뒤로 갈수록 오르거나 유지된다 (적+위험 밀도)', () => {
       const hazards = level.tiles.join('').split('').filter((c) => c === '^' || c === '~').length
       const enemies = level.entities.filter((e) => e.type !== 'platform').length
-      // 1탄은 가장 쉬워야 한다
+      // 1-1 은 가장 쉬워야 한다
       if (index === 0) expect(hazards).toBe(0)
       expect(enemies).toBeGreaterThan(0)
     })

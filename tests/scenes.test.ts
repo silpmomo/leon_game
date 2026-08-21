@@ -78,7 +78,10 @@ describe('respawn', () => {
   })
 
   it('날아가던 공과 아이템은 정리된다', () => {
-    s.balls.push({ x: 0, y: 0, vx: 1, vy: 0, w: 12, h: 12, onGround: false, bounces: 0, alive: true })
+    s.balls.push({
+      x: 0, y: 0, vx: 1, vy: 0, w: 12, h: 12,
+      onGround: false, bounces: 0, alive: true, hostile: false,
+    })
     respawn(s)
     expect(s.balls).toEqual([])
   })

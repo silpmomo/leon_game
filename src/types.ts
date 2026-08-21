@@ -53,6 +53,7 @@ export type Tile =
   | '~' // 용암/독물 — 닿으면 즉사. solid 아님
   | 'S' // 점프대 — 위에서 밟으면 크게 튕긴다. solid
   | 'E' // ? 블록 → 전기 (100만볼트)
+  | 'I' // 얼음 — solid 이지만 미끄럽다
 
 export type TileGrid = {
   w: number
@@ -66,7 +67,7 @@ export type TileGrid = {
 }
 
 /** 스테이지 배경·타일 색 묶음 */
-export type Theme = 'day' | 'underground' | 'night' | 'castle'
+export type Theme = 'day' | 'underground' | 'night' | 'castle' | 'ice'
 
 /**
  * small → big → (ball | bolt).
@@ -95,7 +96,16 @@ export type Player = Body & {
   sliding: boolean
 }
 
-export type EnemyKind = 'broccoli' | 'soup' | 'crocodile' | 'flyer' | 'boss'
+export type EnemyKind =
+  | 'broccoli'
+  | 'soup'
+  | 'crocodile'
+  | 'flyer'
+  | 'boss'
+  /** 가시 등 — 걷지만 밟을 수 없다 */
+  | 'spiky'
+  /** 주기적으로 투사체를 던진다 */
+  | 'thrower'
 
 export type Enemy = Body & {
   kind: EnemyKind
@@ -121,8 +131,11 @@ export type Coin = Rect & { taken: boolean }
 /** ? 블록에서 나와 굴러가는 아이템 */
 export type Item = Body & { kind: 'peach' | 'ball' | 'bolt'; taken: boolean }
 
-/** 발사된 축구공 */
-export type Ball = Body & { bounces: number; alive: boolean }
+/**
+ * 발사된 축구공.
+ * hostile 이면 적이 던진 것이고 플레이어를 때린다.
+ */
+export type Ball = Body & { bounces: number; alive: boolean; hostile: boolean }
 
 /**
  * 전기 빔. 투사체가 아니라 발사 순간 일직선으로 뻗는 사각형이다.
@@ -153,7 +166,7 @@ export type Bump = { tx: number; ty: number; ms: number }
 
 export type LevelEntity =
   | {
-      type: 'broccoli' | 'soup' | 'crocodile' | 'flyer' | 'boss'
+      type: 'broccoli' | 'soup' | 'crocodile' | 'flyer' | 'boss' | 'spiky' | 'thrower'
       x: number
       y: number
       dir?: 1 | -1

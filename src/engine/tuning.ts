@@ -42,6 +42,13 @@ export const TUNING = {
   boltHeight: 10,
   /** 발사 시 화면이 번쩍이는 시간 */
   flashMs: 90,
+
+  /**
+   * 얼음 위 마찰. 감속·가속에 곱한다.
+   * 감속이 크게 줄어 손을 떼도 한참 미끄러지고, 가속도 줄어 방향 전환이 느리다.
+   */
+  iceDecelScale: 0.12,
+  iceAccelScale: 0.55,
   deathFallMargin: 32, // px — 레벨 바닥 아래 이 거리를 넘으면 낙하사
 } as const
 

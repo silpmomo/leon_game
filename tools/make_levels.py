@@ -25,7 +25,7 @@ H = 12
 GROUND = (10, 11)
 D = '.'
 
-SOLID_CH = set('#BbH?@*p|S')
+SOLID_CH = set('#BbH?@*p|SEI')
 
 #: 달리기 점프로 넘을 수 있는 최대 구덩이 폭. engine/tuning.ts 의 derive()에서
 #: 계산되는 값(7타일)보다 한 칸 좁게 잡아 여유를 둔다.
@@ -195,6 +195,19 @@ def spring(w, xs):
     return Sec(_rows(w, {9: ''.join(line)}))
 
 
+def ice(w, gaps=None):
+    """지면 전체를 얼음으로. gaps 로 구덩이도 낼 수 있다."""
+    floor = list('I' * w)
+    plats = []
+    for start, n in (gaps or []):
+        for i in range(start, start + n):
+            assert 0 <= i < w, f'구덩이 {start}+{n} 이 구간 폭 {w} 밖'
+            floor[i] = D
+        if n > MAX_PIT:
+            plats += _stepping_stones(start, n)
+    return Sec(_rows(w, floor=''.join(floor)), plats)
+
+
 # ── 조립 ─────────────────────────────────────────────────────
 
 def _floor_top(tiles, tx):
@@ -283,11 +296,11 @@ STAGE1_SECS = [
     flat(10),
 ]
 
-stage1 = stage(1, '1탄', 'day', STAGE1_SECS, goal_back=8)
+stage1 = stage(1, '1-1', 'day', STAGE1_SECS, goal_back=8)
 
 
 # ── 2탄 — 점프대 소개 ────────────────────────────────────────
-stage2 = stage(2, '2탄', 'day', [
+stage2 = stage(2, '1-2', 'day', [
     coins(20, [8, 10, 12]).e('broccoli', 16),
     spring(18, [6]),
     blocks(22, [(5, 'B'), (6, '@'), (7, 'B'), (14, '?')]).e('broccoli', 18),
@@ -302,7 +315,7 @@ stage2 = stage(2, '2탄', 'day', [
 
 
 # ── 3탄 — 나는 적 소개 ──────────────────────────────────────
-stage3 = stage(3, '3탄', 'day', [
+stage3 = stage(3, '1-3', 'day', [
     flat(20).e('broccoli', 14),
     blocks(22, [(6, 'B'), (7, '*'), (8, 'B')]).e('flyer', 14, y=6),
     pit(24, [(9, 4)]).e('flyer', 4, y=5),
@@ -316,7 +329,7 @@ stage3 = stage(3, '3탄', 'day', [
 
 
 # ── 4탄 — 지하, 가시 소개 ───────────────────────────────────
-stage4 = stage(4, '4탄', 'underground', [
+stage4 = stage(4, '1-4', 'underground', [
     ceiling(20, [(0, 20)], row=2).e('broccoli', 16),
     spikes(20, [10, 11]),
     blocks(22, [(6, 'b'), (7, '@'), (8, 'b')]).e('broccoli', 18),
@@ -331,7 +344,7 @@ stage4 = stage(4, '4탄', 'underground', [
 
 
 # ── 5탄 — 지하, 넓은 구덩이 릴레이 ──────────────────────────
-stage5 = stage(5, '5탄', 'underground', [
+stage5 = stage(5, '1-5', 'underground', [
     ceiling(20, [(0, 20)], row=2).e('broccoli', 15),
     blocks(20, [(6, '*'), (12, '?')]),
     pit(26, [(6, 12)]),
@@ -346,7 +359,7 @@ stage5 = stage(5, '5탄', 'underground', [
 
 
 # ── 6탄 — 밤, 나는 적 밀도 ──────────────────────────────────
-stage6 = stage(6, '6탄', 'night', [
+stage6 = stage(6, '1-6', 'night', [
     coins(20, [8, 10, 12]).e('flyer', 5, y=6).e('flyer', 15, y=4),
     blocks(22, [(5, 'B'), (6, '@'), (7, 'B'), (15, 'E')]).e('broccoli', 18),
     pit(24, [(8, 5)]).e('flyer', 3, y=5).e('flyer', 18, y=7),
@@ -361,7 +374,7 @@ stage6 = stage(6, '6탄', 'night', [
 
 
 # ── 7탄 — 밤, 발판 릴레이 ───────────────────────────────────
-stage7 = stage(7, '7탄', 'night', [
+stage7 = stage(7, '1-7', 'night', [
     flat(18).e('broccoli', 14),
     blocks(20, [(6, '*'), (13, 'E')]),
     pit(28, [(5, 15)]),
@@ -376,7 +389,7 @@ stage7 = stage(7, '7탄', 'night', [
 
 
 # ── 8탄 — 성, 용암 소개 ─────────────────────────────────────
-stage8 = stage(8, '8탄', 'castle', [
+stage8 = stage(8, '1-8', 'castle', [
     ceiling(18, [(0, 18)], row=2).e('broccoli', 14),
     blocks(20, [(6, '@'), (13, 'E')]),
     lava(24, [(8, 6)]),
@@ -391,7 +404,7 @@ stage8 = stage(8, '8탄', 'castle', [
 
 
 # ── 9탄 — 성, 총복습 ────────────────────────────────────────
-stage9 = stage(9, '9탄', 'castle', [
+stage9 = stage(9, '1-9', 'castle', [
     ceiling(18, [(0, 18)], row=2).e('broccoli', 14).e('flyer', 8, y=5),
     blocks(20, [(6, '@'), (12, 'E')]),
     lava(24, [(7, 7)]),
@@ -406,7 +419,7 @@ stage9 = stage(9, '9탄', 'castle', [
 
 
 # ── 10탄 — 보스 성 ─────────────────────────────────────────
-stage10 = stage(10, '10탄', 'castle', [
+stage10 = stage(10, '1-10', 'castle', [
     ceiling(18, [(0, 18)], row=2).e('broccoli', 14),
     blocks(20, [(6, '@'), (12, '*')]),
     lava(24, [(8, 7)]),
@@ -421,6 +434,159 @@ stage10 = stage(10, '10탄', 'castle', [
 
 
 STAGES = [stage1, stage2, stage3, stage4, stage5, stage6, stage7, stage8, stage9, stage10]
+
+# ══════════════════════════════════════════════════════════════
+# 2월드 — 얼음·가시 적·던지는 적
+#
+# 1월드를 다 깬 사람이 오는 곳이다. 새 요소를 2-1~2-3 에서 하나씩 소개하고
+# 뒤로 갈수록 겹친다. 1월드보다 적 밀도와 위험 밀도가 높다.
+# ══════════════════════════════════════════════════════════════
+
+# ── 2-1 — 얼음 소개 (미끄러짐) ───────────────────────────────
+stage21 = stage(11, '2-1', 'ice', [
+    coins(20, [8, 10, 12]).e('broccoli', 16),
+    ice(20),                                   # 첫 얼음 — 평지에서 미끄러짐만 배운다
+    ice(22, [(9, 4)]),                         # 얼음 + 구덩이
+    blocks(22, [(5, 'B'), (6, '@'), (7, 'B'), (15, '?')]).e('broccoli', 18),
+    ice(24, [(8, 5)]).e('broccoli', 3),
+    flat(20).e('soup', 8).e('broccoli', 16),
+    ice(22, [(6, 4), (15, 4)]),
+    pipes(20, [(5, 3), (14, 4)]).e('broccoli', 10),
+    stairs(20, 10, 5).e('broccoli', 4),
+    flat(16).e('broccoli', 5),
+])
+
+# ── 2-2 — 가시 적 소개 (밟을 수 없다) ────────────────────────
+stage22 = stage(12, '2-2', 'ice', [
+    flat(20).e('broccoli', 15),
+    blocks(22, [(6, 'B'), (7, '*'), (8, 'B')]).e('spiky', 16),
+    ice(24, [(9, 4)]).e('spiky', 4),
+    flat(22).e('spiky', 8).e('broccoli', 17),
+    ice(24, [(7, 5)]).e('spiky', 3),
+    ceiling(22, [(4, 4), (14, 4)]).e('spiky', 10).e('broccoli', 18),
+    ice(24, [(8, 5)]).e('spiky', 3),
+    spring(20, [8]).e('spiky', 15),
+    stairs(20, 10, 5).e('spiky', 4),
+    flat(16).e('broccoli', 5),
+])
+
+# ── 2-3 — 던지는 적 소개 ─────────────────────────────────────
+stage23 = stage(13, '2-3', 'ice', [
+    coins(20, [7, 9, 11]).e('broccoli', 16),
+    blocks(22, [(6, '@'), (14, '*')]),
+    flat(24).e('thrower', 12),                 # 첫 던지는 적 — 평지에서 패턴을 본다
+    ice(24, [(9, 4)]).e('spiky', 4),
+    flat(22).e('thrower', 10).e('broccoli', 18),
+    ice(26, [(7, 6)]).e('flyer', 15, y=5),
+    ceiling(24, [(4, 5), (15, 5)]).e('thrower', 10),
+    ice(24, [(8, 5)]).e('spiky', 3),
+    stairs(20, 10, 6).e('broccoli', 4),
+    flat(18).e('thrower', 6),
+])
+
+# ── 2-4 — 지하, 얼음 + 가시 타일 ────────────────────────────
+stage24 = stage(14, '2-4', 'underground', [
+    ceiling(20, [(0, 20)], row=2).e('broccoli', 16),
+    spikes(20, [10, 11]),
+    blocks(22, [(6, 'b'), (7, '@'), (8, 'b')]).e('spiky', 18),
+    ice(22, [(9, 4)]),
+    spikes(24, [6, 7, 8, 16, 17]).e('thrower', 12),
+    ceiling(22, [(3, 4), (14, 5)]).e('spiky', 9),
+    ice(24, [(8, 5)]).e('flyer', 3, y=5),
+    spikes(22, [5, 6, 14, 15, 16]).e('spiky', 10),
+    stairs(20, 9, 6).e('flyer', 17, y=6),
+    flat(16).e('thrower', 5),
+])
+
+# ── 2-5 — 지하, 넓은 구덩이 + 던지는 적 ─────────────────────
+stage25 = stage(15, '2-5', 'underground', [
+    ceiling(20, [(0, 20)], row=2).e('broccoli', 15),
+    blocks(20, [(6, 'E'), (12, '?')]),
+    pit(26, [(6, 12)]).e('thrower', 22),
+    spikes(22, [4, 5, 15, 16]).e('spiky', 10),
+    pit(26, [(7, 11)]).e('flyer', 22, y=5),
+    ceiling(22, [(5, 5), (14, 4)]).e('crocodile', 10),
+    spikes(24, [8, 9, 10]).e('thrower', 18),
+    spring(22, [6, 15]).e('flyer', 11, y=6),
+    stairs(18, 8, 5).e('spiky', 3),
+    flat(16).e('broccoli', 5),
+])
+
+# ── 2-6 — 밤, 나는 적 + 가시 적 밀도 ────────────────────────
+stage26 = stage(16, '2-6', 'night', [
+    coins(20, [8, 10, 12]).e('flyer', 5, y=6).e('flyer', 15, y=4),
+    blocks(22, [(5, 'B'), (6, '@'), (7, 'E')]).e('spiky', 18),
+    pit(24, [(8, 5)]).e('flyer', 3, y=5).e('flyer', 18, y=7),
+    ice(22).e('spiky', 6).e('spiky', 16),
+    pit(26, [(6, 5), (16, 5)]).e('flyer', 12, y=5),
+    spring(22, [6, 15]).e('thrower', 11),
+    ceiling(24, [(4, 4), (16, 4)]).e('spiky', 10).e('broccoli', 13),
+    pit(24, [(9, 5)]).e('flyer', 3, y=4),
+    stairs(20, 10, 6).e('spiky', 4),
+    flat(18).e('crocodile', 5),
+])
+
+# ── 2-7 — 밤, 얼음 발판 릴레이 ──────────────────────────────
+stage27 = stage(17, '2-7', 'night', [
+    flat(18).e('broccoli', 14),
+    blocks(20, [(6, '*'), (13, 'E')]),
+    pit(28, [(5, 15)]).e('flyer', 24, y=5),
+    ice(18).e('spiky', 8),
+    pit(28, [(5, 16)]).e('flyer', 24, y=6),
+    spikes(20, [8, 9, 10]).e('thrower', 16),
+    ceiling(22, [(5, 5), (14, 5)]).e('crocodile', 10),
+    ice(24, [(8, 6)]).e('flyer', 3, y=6),
+    stairs(20, 10, 6).e('spiky', 4),
+    flat(16).e('flyer', 6, y=5).e('broccoli', 11),
+])
+
+# ── 2-8 — 성, 용암 + 던지는 적 ──────────────────────────────
+stage28 = stage(18, '2-8', 'castle', [
+    ceiling(18, [(0, 18)], row=2).e('broccoli', 14),
+    blocks(20, [(6, '@'), (13, 'E')]),
+    lava(24, [(8, 6)]).e('thrower', 20),
+    flat(20).e('flyer', 8, y=5).e('spiky', 16),
+    lava(26, [(6, 7), (17, 6)]),
+    spikes(22, [5, 6, 15, 16]).e('spiky', 11),
+    lava(24, [(9, 7)]),
+    ceiling(22, [(4, 5), (14, 5)]).e('crocodile', 10),
+    stairs(20, 10, 6).e('thrower', 4),
+    flat(18).e('spiky', 6),
+])
+
+# ── 2-9 — 성, 총복습 ────────────────────────────────────────
+stage29 = stage(19, '2-9', 'castle', [
+    ceiling(18, [(0, 18)], row=2).e('broccoli', 14).e('flyer', 8, y=5),
+    blocks(20, [(6, '@'), (12, 'E')]),
+    lava(24, [(7, 7)]).e('thrower', 20),
+    spikes(20, [6, 7, 12, 13]).e('crocodile', 16),
+    lava(26, [(6, 7), (17, 6)]),
+    ice(20).e('spiky', 6).e('spiky', 14),
+    ceiling(24, [(4, 5), (15, 5)]).e('thrower', 10).e('spiky', 18),
+    lava(24, [(8, 8)]),
+    stairs(20, 10, 6).e('flyer', 4, y=5),
+    flat(18).e('crocodile', 6),
+])
+
+# ── 2-10 — 보스 재대결 (호위 포함) ──────────────────────────
+stage210 = stage(20, '2-10', 'castle', [
+    ceiling(18, [(0, 18)], row=2).e('spiky', 14),
+    blocks(20, [(6, '@'), (12, 'E')]),
+    lava(24, [(8, 7)]).e('thrower', 20),
+    spikes(20, [6, 7, 13, 14]).e('flyer', 10, y=5),
+    lava(26, [(7, 8), (18, 5)]),
+    # 보스 전 보급 — 축구공과 전기 둘 다
+    blocks(22, [(5, '*'), (15, 'E')]),
+    # 투기장. 보스에 던지는 적 호위가 붙는다
+    flat(44).e('boss', 22, y=9).e('thrower', 4).e('thrower', 38)
+             .e('flyer', 12, y=4).e('flyer', 32, y=4),
+    flat(14),
+], flag_top=3)
+
+
+STAGES += [stage21, stage22, stage23, stage24, stage25,
+           stage26, stage27, stage28, stage29, stage210]
+
 
 if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True)

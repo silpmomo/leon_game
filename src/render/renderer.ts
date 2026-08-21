@@ -19,6 +19,7 @@ const TILE_FRAME: Partial<Record<Tile, string>> = {
   '~': 'lava',
   S: 'spring',
   E: 'boltBlock',
+  I: 'ice',
 }
 
 /** 테마별 하늘 그라디언트와 타일 색조 */
@@ -27,6 +28,7 @@ const THEME: Record<Theme, { sky: [string, string, string]; tint: string | null 
   underground: { sky: ['#10131c', '#161c2b', '#1d2436'], tint: 'rgba(90,127,184,.35)' },
   night: { sky: ['#141a33', '#222b52', '#33406f'], tint: 'rgba(91,91,168,.28)' },
   castle: { sky: ['#2a1114', '#3d1a1c', '#4f2422'], tint: 'rgba(192,90,74,.3)' },
+  ice: { sky: ['#a8dcf0', '#cdeaf7', '#e8f6fc'], tint: 'rgba(150,215,240,.28)' },
 }
 
 /** 얼굴/몸통 비율. 합이 스프라이트 전체 높이가 된다. */
@@ -105,6 +107,11 @@ function enemyFrame(e: Enemy, t: number): string {
       return `crocodile${Math.floor(t / 6) % 2}`
     case 'flyer':
       return `flyer${Math.floor(t / 5) % 2}`
+    case 'spiky':
+      return `spiky${Math.floor(t / 6) % 2}`
+    case 'thrower':
+      // 던질 때(timerMs 가 갓 리셋된 직후) 뚜껑이 열린다
+      return e.timerMs < 260 ? 'thrower1' : 'thrower0'
     case 'boss':
       return e.onGround ? 'boss0' : 'boss1'
     default:
@@ -202,10 +209,11 @@ export function drawWorld(
     draw(ctx, atlas, enemyFrame(e, tick), e.x, e.y, e.w, e.h, e.dir === 1)
   }
 
-  // 축구공
+  // 축구공과 적이 던진 국물 방울
   for (const b of s.balls) {
     if (!b.alive) continue
-    draw(ctx, atlas, `ball${Math.floor(tick / 4) % 4}`, b.x, b.y, b.w, b.h)
+    const name = b.hostile ? 'drop' : `ball${Math.floor(tick / 4) % 4}`
+    draw(ctx, atlas, name, b.x, b.y, b.w, b.h)
   }
 
   // 전기 빔 — 플레이어보다 먼저 그려 몸이 빔 위에 오게 한다

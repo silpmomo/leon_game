@@ -1,5 +1,6 @@
 import type { InputState, Player, PowerState, TileGrid } from '../types'
 import { TILE, TUNING } from '../engine/tuning'
+import { isIce, tileAt } from './tilemap'
 import { applyGravity, moveX, moveY, type VerticalHit } from '../engine/physics'
 
 export const PLAYER_SIZE = {
@@ -51,6 +52,17 @@ export function maxSpeedFor(p: Player): number {
   return TUNING.walkMax + (TUNING.runMax - TUNING.walkMax) * t
 }
 
+/** 발밑 타일이 얼음인가. 발이 두 타일에 걸치면 한쪽만 얼음이어도 미끄럽다. */
+function standingOnIce(p: Player, grid: TileGrid): boolean {
+  const ty = Math.floor((p.y + p.h) / TILE)
+  const x0 = Math.floor(p.x / TILE)
+  const x1 = Math.floor((p.x + p.w - 1) / TILE)
+  for (let tx = x0; tx <= x1; tx++) {
+    if (isIce(tileAt(grid, tx, ty))) return true
+  }
+  return false
+}
+
 export type PlayerStep = {
   vertical: VerticalHit
   jumped: boolean
@@ -76,16 +88,20 @@ export function updatePlayer(
     p.runMs = 0
   }
 
+  // ── 얼음 위에서는 감속이 거의 없고 가속도 둔해진다
+  const onIce = p.onGround && standingOnIce(p, grid)
+
   // ── 가로 가속·감속
   const max = maxSpeedFor(p)
   const turning = dir !== 0 && p.vx !== 0 && Math.sign(p.vx) !== dir
   p.skidding = p.onGround && turning
 
   if (dir === 0) {
-    const dec = TUNING.decel * dt
+    const dec = TUNING.decel * (onIce ? TUNING.iceDecelScale : 1) * dt
     p.vx = Math.abs(p.vx) <= dec ? 0 : p.vx - Math.sign(p.vx) * dec
   } else {
-    const a = !p.onGround ? TUNING.airAccel : turning ? TUNING.skidDecel : TUNING.accel
+    const base = !p.onGround ? TUNING.airAccel : turning ? TUNING.skidDecel : TUNING.accel
+    const a = base * (onIce ? TUNING.iceAccelScale : 1)
     p.vx += dir * a * dt
     p.vx = Math.max(-max, Math.min(max, p.vx))
   }

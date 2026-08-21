@@ -60,8 +60,13 @@ export function newGameState(level: LevelData, mode: Mode): GameState {
   }
 }
 
+/**
+ * 살아 있는 플레이어 공의 수.
+ * 적이 던진 것(hostile)은 세지 않는다 — 세면 적의 투사체가 날아다니는 동안
+ * 플레이어가 발사를 못 하게 막힌다.
+ */
 function aliveBalls(s: GameState): number {
-  return s.balls.reduce((n, b) => n + (b.alive ? 1 : 0), 0)
+  return s.balls.reduce((n, b) => n + (b.alive && !b.hostile ? 1 : 0), 0)
 }
 
 /** 발판 위에 서 있는가 — 발밑 2px 안에 발판 상단이 있는 경우 */
@@ -156,8 +161,11 @@ export function updateFrame(s: GameState, input: InputState, dt: number): RuleEv
     }
   }
 
-  // ── 5. 엔티티
-  for (const e of s.enemies) updateEnemy(e, s.grid, s.player, dt)
+  // ── 5. 엔티티. 던지는 적은 투사체를 돌려주므로 목록에 넣는다.
+  for (const e of s.enemies) {
+    const thrown = updateEnemy(e, s.grid, s.player, dt)
+    if (thrown) s.balls.push(thrown)
+  }
   for (const it of s.items) updateItem(it, s.grid, dt)
   for (const b of s.balls) updateBall(b, s.grid, dt)
   for (const b of s.bolts) updateBolt(b, dt)

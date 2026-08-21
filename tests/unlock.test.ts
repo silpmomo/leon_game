@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { clearedCount, furthestUnlocked, isUnlocked } from '../src/game/unlock'
-import { cellRect, stageHitTest } from '../src/ui/stageSelect'
-import { STAGES } from '../src/levels/index'
+import { cellRect, stageHitTest, worldTabHitTest } from '../src/ui/stageSelect'
+import { STAGES, STAGES_PER_WORLD, WORLD_COUNT } from '../src/levels/index'
 import type { BestRecord, Progress } from '../src/types'
 
 const IDS = STAGES.map((s) => s.id)
@@ -55,7 +55,11 @@ describe('furthestUnlocked', () => {
   })
 
   it('전부 깼으면 마지막 인덱스에서 멈춘다', () => {
-    expect(furthestUnlocked(IDS, progressUpTo(10))).toBe(9)
+    expect(furthestUnlocked(IDS, progressUpTo(IDS.length))).toBe(IDS.length - 1)
+  })
+
+  it('1월드를 다 깨면 2월드 첫 탄이 최전선이 된다', () => {
+    expect(furthestUnlocked(IDS, progressUpTo(10))).toBe(10)
   })
 })
 
@@ -63,6 +67,7 @@ describe('clearedCount', () => {
   it('깬 개수를 센다', () => {
     expect(clearedCount(IDS, {})).toBe(0)
     expect(clearedCount(IDS, progressUpTo(7))).toBe(7)
+    expect(clearedCount(IDS, progressUpTo(20))).toBe(20)
   })
 
   it('시도만 한 것은 세지 않는다', () => {
@@ -89,26 +94,26 @@ describe('스테이지 선택 히트테스트', () => {
   })
 
   it('열린 칸을 누르면 그 인덱스를 준다', () => {
-    expect(stageHitTest(...center(0), STAGES, {})).toBe(0)
+    expect(stageHitTest(...center(0), STAGES, {}, 0)).toBe(0)
   })
 
   it('잠긴 칸을 누르면 null 이다', () => {
-    expect(stageHitTest(...center(5), STAGES, {})).toBeNull()
+    expect(stageHitTest(...center(5), STAGES, {}, 0)).toBeNull()
   })
 
   it('진행도가 쌓이면 그만큼 눌린다', () => {
     const p = progressUpTo(5)
-    expect(stageHitTest(...center(4), STAGES, p)).toBe(4)
-    expect(stageHitTest(...center(5), STAGES, p)).toBe(5)
-    expect(stageHitTest(...center(6), STAGES, p)).toBeNull()
+    expect(stageHitTest(...center(4), STAGES, p, 0)).toBe(4)
+    expect(stageHitTest(...center(5), STAGES, p, 0)).toBe(5)
+    expect(stageHitTest(...center(6), STAGES, p, 0)).toBeNull()
   })
 
   it('칸 밖을 누르면 null', () => {
-    expect(stageHitTest(2, 2, STAGES, progressUpTo(10))).toBeNull()
+    expect(stageHitTest(2, 2, STAGES, progressUpTo(10), 0)).toBeNull()
   })
 
   it('모든 칸이 화면 안에 있다', () => {
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < STAGES_PER_WORLD; i++) {
       const r = cellRect(i)
       expect(r.x, `${i}번 왼쪽`).toBeGreaterThanOrEqual(0)
       expect(r.y, `${i}번 위`).toBeGreaterThanOrEqual(0)

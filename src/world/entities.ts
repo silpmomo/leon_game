@@ -19,6 +19,8 @@ export const ENEMY_SIZE: Record<EnemyKind, { w: number; h: number }> = {
   crocodile: { w: 26, h: 10 },
   flyer: { w: 14, h: 12 },
   boss: { w: 40, h: 26 },
+  spiky: { w: 14, h: 14 },
+  thrower: { w: 16, h: 16 },
 }
 
 export const ENEMY_TUNING = {
@@ -48,6 +50,16 @@ export const ENEMY_TUNING = {
   bossJumpPeriodMs: 2200,
   bossHitCooldownMs: 700,
   bossRangeTiles: 9,
+
+  /** 가시 적 — 브로콜리보다 조금 빠르고 밟을 수 없다 */
+  spikySpeed: 50,
+
+  /** 던지는 적 — 느리게 걸으며 주기적으로 투사체를 던진다 */
+  throwerSpeed: 25,
+  throwerPeriodMs: 1800,
+  throwerRangeTiles: 10,
+  throwerBallVx: 95,
+  throwerBallVy: -150,
 } as const
 
 export function createEnemy(kind: EnemyKind, tx: number, ty: number, dir: 1 | -1): Enemy {
@@ -80,19 +92,51 @@ const HP: Record<EnemyKind, number> = {
   crocodile: ENEMY_TUNING.crocHp,
   flyer: 1,
   boss: ENEMY_TUNING.bossHp,
+  spiky: 1,
+  thrower: 2,
 }
 
-export function updateEnemy(e: Enemy, grid: TileGrid, player: Player, dt: number): void {
-  if (!e.alive) return
+/**
+ * 적이 던진 투사체. 플레이어를 때린다.
+ * 플레이어의 공과 같은 Ball 을 쓰고 hostile 로 구분한다.
+ */
+export function createHostileBall(e: Enemy): Ball {
+  const size = 10
+  return {
+    x: e.dir === 1 ? e.x + e.w : e.x - size,
+    y: e.y + 2,
+    vx: e.dir * ENEMY_TUNING.throwerBallVx,
+    vy: ENEMY_TUNING.throwerBallVy,
+    w: size,
+    h: size,
+    onGround: false,
+    bounces: 0,
+    alive: true,
+    hostile: true,
+  }
+}
+
+/**
+ * 적을 갱신하고, 던진 투사체가 있으면 돌려준다.
+ * 반환값이 null 이 아니면 호출한 쪽이 s.balls 에 넣는다.
+ */
+export function updateEnemy(
+  e: Enemy,
+  grid: TileGrid,
+  player: Player,
+  dt: number,
+): Ball | null {
+  if (!e.alive) return null
 
   // 밟혀서 납작해진 상태 — 잠시 보여주고 사라진다
   if (e.squashMs > 0) {
     e.squashMs -= dt * 1000
     if (e.squashMs <= 0) e.alive = false
-    return
+    return null
   }
 
-  if (!e.active) return
+  if (!e.active) return null
+  let thrown: Ball | null = null
   if (e.hitCooldownMs > 0) e.hitCooldownMs = Math.max(0, e.hitCooldownMs - dt * 1000)
 
   switch (e.kind) {
@@ -123,6 +167,25 @@ export function updateEnemy(e: Enemy, grid: TileGrid, player: Player, dt: number
       break
     }
 
+    case 'spiky':
+      // 브로콜리와 같은 걸음. 밟기 판정에서만 다르다 (rules.ts STOMPABLE)
+      e.vx = e.dir * ENEMY_TUNING.spikySpeed
+      break
+
+    case 'thrower': {
+      e.vx = e.dir * ENEMY_TUNING.throwerSpeed
+      e.timerMs += dt * 1000
+      const near =
+        Math.abs(player.x + player.w / 2 - (e.x + e.w / 2))
+        <= ENEMY_TUNING.throwerRangeTiles * TILE
+      if (near && e.timerMs >= ENEMY_TUNING.throwerPeriodMs) {
+        e.timerMs = 0
+        e.dir = player.x < e.x ? -1 : 1
+        thrown = createHostileBall(e)
+      }
+      break
+    }
+
     case 'flyer': {
       // 중력을 받지 않고 사인 곡선으로 오르내린다
       e.timerMs += dt * 1000
@@ -133,7 +196,7 @@ export function updateEnemy(e: Enemy, grid: TileGrid, player: Player, dt: number
       if (moveX(e, grid, dt)) e.dir = (e.dir * -1) as 1 | -1
       e.y = target
       e.onGround = false
-      return
+      return null
     }
 
     case 'boss': {
@@ -153,6 +216,7 @@ export function updateEnemy(e: Enemy, grid: TileGrid, player: Player, dt: number
   applyGravity(e, dt, false)
   if (moveX(e, grid, dt)) e.dir = (e.dir * -1) as 1 | -1
   moveY(e, grid, dt, false) // 적에게 코너 보정을 켜면 벽을 통과한다
+  return thrown
 }
 
 export function createPlatform(def: Extract<LevelEntity, { type: 'platform' }>): Platform {
@@ -213,6 +277,7 @@ export function createBall(p: Player): Ball {
     onGround: false,
     bounces: 0,
     alive: true,
+    hostile: false,
   }
 }
 

@@ -32,7 +32,11 @@ export type RuleEvent =
   | 'bossDown'
   | 'bolt'
 
-/** 위에서 밟아 없앨 수 있는 적. 악어는 가시가 있고 보스는 너무 크다 */
+/**
+ * 위에서 밟아 없앨 수 있는 적.
+ * 악어·가시 적은 등에 가시가 있고, 보스는 너무 크고,
+ * 던지는 적은 뜨거운 것을 들고 있어 밟을 수 없다.
+ */
 const STOMPABLE = new Set<EnemyKind>(['broccoli', 'soup', 'flyer'])
 
 export function canStomp(p: Player, e: Enemy): boolean {
@@ -137,6 +141,16 @@ export function resolveBalls(s: GameState): RuleEvent[] {
   const events: RuleEvent[] = []
   for (const b of s.balls) {
     if (!b.alive) continue
+
+    // 적이 던진 것은 플레이어를 때린다
+    if (b.hostile) {
+      if (overlaps(b, s.player)) {
+        b.alive = false
+        events.push(...hurtPlayer(s))
+      }
+      continue
+    }
+
     for (const e of s.enemies) {
       if (!e.alive || !e.active || e.squashMs > 0) continue
       if (e.hitCooldownMs > 0) continue

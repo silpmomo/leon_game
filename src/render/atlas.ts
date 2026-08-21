@@ -61,6 +61,12 @@ export const REQUIRED_FRAMES = [
   'boltItem',
   'boltBlock',
   'boltBlockUsed',
+  'ice',
+  'spiky0',
+  'spiky1',
+  'thrower0',
+  'thrower1',
+  'drop',
 ] as const
 
 export const FALLBACK_COLOR: Record<string, string> = {
@@ -116,6 +122,12 @@ export const FALLBACK_COLOR: Record<string, string> = {
   boltItem: '#ffd733',
   boltBlock: '#6b3fa0',
   boltBlockUsed: '#4a2a72',
+  ice: '#8fcfe8',
+  spiky0: '#6b4a2a',
+  spiky1: '#6b4a2a',
+  thrower0: '#8a929c',
+  thrower1: '#8a929c',
+  drop: '#ff8a3a',
 }
 
 export function frame(data: AtlasData, name: string): FrameRect | null {
