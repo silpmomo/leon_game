@@ -1,4 +1,5 @@
-import atlasJson from '../public/sprites/atlas.json'
+import atlasJson from './assets/sprites/atlas.json'
+import sheetUrl from './assets/sprites/sprites.png'
 import type { LevelData, Mode, Progress } from './types'
 import { VIEW_H, VIEW_W } from './engine/tuning'
 import { STAGES } from './levels/index'
@@ -49,7 +50,7 @@ state.muted = loadMuted()
 
 /** 시트가 로드될 때까지는 폴백 사각형으로 그린다 */
 let atlas: LoadedAtlas = { data: atlasJson as AtlasData, image: null }
-void loadAtlas(atlasJson as AtlasData, `${import.meta.env.BASE_URL}sprites/`).then((a) => {
+void loadAtlas(atlasJson as AtlasData, sheetUrl).then((a) => {
   atlas = a
 })
 

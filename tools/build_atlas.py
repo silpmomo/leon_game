@@ -9,7 +9,11 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from png import read_png, write_png   # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-OUT_DIR = os.path.join(ROOT, 'public', 'sprites')
+# 시트를 public/ 이 아니라 src/ 에 둔다.
+# public/ 은 파일명 그대로 배포되어 해시가 붙지 않는다. 시트가 바뀌어도
+# URL 이 같아서 브라우저가 옛 시트를 캐시에서 꺼내고, 번들에 박힌 새
+# atlas.json 과 짝이 어긋나 모든 프레임이 엉뚱한 영역을 읽는다.
+OUT_DIR = os.path.join(ROOT, 'src', 'assets', 'sprites')
 PAD = 1
 
 
@@ -46,7 +50,7 @@ items = load_dots()
 if not items:
     sys.exit('tools/dot/*.json 이 없다. python3 tools/make_dots.py 를 먼저 돌려라.')
 
-face_path = os.path.join(OUT_DIR, 'face.png')
+face_path = os.path.join(ROOT, 'tools', '.build', 'face.png')
 if os.path.exists(face_path):
     fw, fh, fch, fpx = read_png(face_path)
     buf = bytearray()

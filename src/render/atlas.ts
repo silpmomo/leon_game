@@ -116,14 +116,22 @@ export function frame(data: AtlasData, name: string): FrameRect | null {
   return data.frames[name] ?? null
 }
 
-/** 실패해도 예외를 던지지 않는다. image가 null이면 렌더러가 폴백을 그린다. */
-export async function loadAtlas(data: AtlasData, baseUrl: string): Promise<LoadedAtlas> {
+/**
+ * 실패해도 예외를 던지지 않는다. image가 null이면 렌더러가 폴백을 그린다.
+ *
+ * sheetUrl 은 번들러가 만든 URL 을 그대로 받는다. 이전에는 data.sheet
+ * ("sprites.png") 를 BASE_URL 에 붙여 public/ 의 고정 파일명을 가리켰는데,
+ * 그 경로는 해시가 없어서 시트를 바꿔도 URL 이 같았다. 브라우저가 옛 시트를
+ * 캐시에서 꺼내면 번들에 박힌 새 atlas.json 과 어긋나 모든 프레임이 엉뚱한
+ * 영역을 읽는다. 이제 시트를 src/ 에서 import 해 번들과 함께 해시된다.
+ */
+export async function loadAtlas(data: AtlasData, sheetUrl: string): Promise<LoadedAtlas> {
   try {
     const image = await new Promise<HTMLImageElement>((resolve, reject) => {
       const img = new Image()
       img.onload = () => resolve(img)
       img.onerror = () => reject(new Error('스프라이트 시트 로드 실패'))
-      img.src = `${baseUrl}${data.sheet}`
+      img.src = sheetUrl
     })
     return { data, image }
   } catch {

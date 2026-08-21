@@ -15,7 +15,8 @@ from png import read_png, rot90cw, write_png   # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TOOLS = os.path.join(ROOT, 'tools')
-OUT_DIR = os.path.join(ROOT, 'public', 'sprites')
+# face.png 는 아틀라스로 굽기 위한 중간 산출물이다. 런타임에 쓰이지 않는다.
+OUT_DIR = os.path.join(ROOT, 'tools', '.build')
 BUILD = os.path.join(TOOLS, '.build')
 
 cfg = json.load(open(os.path.join(TOOLS, 'faces.json'), encoding='utf-8'))
