@@ -1,6 +1,7 @@
 import level from './levels/1-1.json'
 import type { LevelData } from './types'
 import { VIEW_H, VIEW_W } from './engine/tuning'
+import { assertValidLevel } from './levels/schema'
 import { newGameState, updateFrame } from './game/update'
 import { createInput } from './core/input'
 import { createLoop } from './core/loop'
@@ -12,6 +13,7 @@ const ctx = canvas.getContext('2d')!
 ctx.imageSmoothingEnabled = false
 
 const data = level as LevelData
+assertValidLevel(data) // 잘못된 레벨로는 부팅하지 않는다
 let state = newGameState(data, 'practice')
 
 const input = createInput()
