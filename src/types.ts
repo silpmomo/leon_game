@@ -76,7 +76,15 @@ export type Theme = 'day' | 'underground' | 'night' | 'castle' | 'ice'
  */
 export type PowerState = 'small' | 'big' | 'ball' | 'bolt'
 export type Mode = 'practice' | 'challenge'
-export type Scene = 'title' | 'select' | 'playing' | 'dead' | 'clear' | 'gameover'
+export type Scene =
+  /** 게임 고르기 — 가장 처음 화면 */
+  | 'hub'
+  | 'title'
+  | 'select'
+  | 'playing'
+  | 'dead'
+  | 'clear'
+  | 'gameover'
 
 export type Player = Body & {
   power: PowerState

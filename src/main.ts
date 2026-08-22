@@ -15,7 +15,9 @@ import { drawControls, drawWorld } from './render/renderer'
 import { drawDebug } from './render/debugOverlay'
 import { MUTE_RECT, drawHud } from './render/hud'
 import { drawRotateOverlay, isPortrait } from './ui/orientation'
-import { drawTitle, titleHitTest } from './ui/titleScreen'
+import { drawTitle, hubHitTest, titleHitTest } from './ui/titleScreen'
+import { drawGameSelect, firstReadyGame, gameHitTest } from './ui/gameSelect'
+import { GAMES } from './games/registry'
 import {
   backHitTest,
   drawStageSelect,
@@ -42,9 +44,24 @@ try {
 
 const STAGE_IDS = STAGES.map((s) => s.id)
 
+/** 지금 고른 게임. 허브에서 정해진다. */
+const ADVENTURE = 'adventure'
+let gameId = ADVENTURE
+
 const progress: Record<Mode, Progress> = {
-  practice: loadProgress('practice'),
-  challenge: loadProgress('challenge'),
+  practice: loadProgress(ADVENTURE, 'practice'),
+  challenge: loadProgress(ADVENTURE, 'challenge'),
+}
+
+/** 허브 카드에 보여줄, 게임별 진행도 요약 */
+const hubRecords: Record<string, Progress> = { [ADVENTURE]: progress.practice }
+const hubTotals: Record<string, number> = { [ADVENTURE]: STAGES.length }
+
+function refreshHub(): void {
+  // 두 모드 중 더 많이 깬 쪽을 대표로 보여준다
+  const a = Object.values(progress.practice).filter((r) => r.cleared).length
+  const b = Object.values(progress.challenge).filter((r) => r.cleared).length
+  hubRecords[ADVENTURE] = a >= b ? progress.practice : progress.challenge
 }
 
 let mode: Mode = 'practice'
@@ -52,7 +69,7 @@ let stageIndex = 0
 /** 스테이지 선택 화면에서 보고 있는 월드 (0부터) */
 let selWorld = 0
 let state = newGameState(STAGES[0] as LevelData, 'practice')
-state.scene = 'title'
+state.scene = 'hub'
 state.muted = loadMuted()
 
 /** 시트가 로드될 때까지는 폴백 사각형으로 그린다 */
@@ -163,7 +180,22 @@ function handleTap(px: number, py: number): boolean {
     return false
   }
 
+  if (state.scene === 'hub') {
+    const picked = gameHitTest(px, py)
+    if (picked) {
+      gameId = picked
+      state.scene = 'title'
+      input.reset()
+    }
+    return false
+  }
+
   if (state.scene === 'title') {
+    if (hubHitTest(px, py)) {
+      state.scene = 'hub'
+      input.reset()
+      return false
+    }
     const picked = titleHitTest(px, py)
     if (picked) {
       mode = picked
@@ -220,6 +252,15 @@ for (const type of ['pointerup', 'pointercancel', 'lostpointercapture'] as const
 }
 window.addEventListener('keydown', (e) => {
   unlockAudio()
+  if (state.scene === 'hub' && (e.code === 'Space' || e.code === 'Enter')) {
+    const first = firstReadyGame()
+    if (first) {
+      gameId = first
+      state.scene = 'title'
+      input.reset()
+    }
+    return
+  }
   if (state.scene === 'title' && (e.code === 'Space' || e.code === 'Enter')) {
     mode = 'practice'
     stageIndex = furthestUnlocked(STAGE_IDS, progress[mode])
@@ -247,7 +288,11 @@ window.addEventListener('keydown', (e) => {
     return
   }
   if (e.code === 'Escape') {
-    goSelect()
+    // 게임 안이면 탄 고르기로, 탄 고르기·타이틀이면 한 단계 위로
+    if (state.scene === 'select') state.scene = 'title'
+    else if (state.scene === 'title') state.scene = 'hub'
+    else goSelect()
+    input.reset()
     return
   }
   input.onKey(e.code, true)
@@ -263,7 +308,7 @@ window.addEventListener('resize', resize)
 const loop = createLoop({
   update: (dt) => {
     if (isPortrait()) return
-    if (state.scene === 'title' || state.scene === 'select') return
+    if (state.scene === 'hub' || state.scene === 'title' || state.scene === 'select') return
 
     input.beginFrame()
     const events = state.scene === 'playing' ? updateFrame(state, input.state, dt) : []
@@ -285,7 +330,8 @@ const loop = createLoop({
         fewestDeaths: 0,
       }
       progress[mode][id] = toRecord(state, prev)
-      saveProgress(mode, progress[mode])
+      saveProgress(gameId, mode, progress[mode])
+      refreshHub()
       audio.stopBgm()
     }
     if (state.scene === 'gameover' || state.scene === 'dead') audio.stopBgm()
@@ -307,6 +353,10 @@ const loop = createLoop({
     if (isPortrait()) {
       audio.stopBgm()
       drawRotateOverlay(ctx)
+      return
+    }
+    if (state.scene === 'hub') {
+      drawGameSelect(ctx, atlas, hubRecords, hubTotals)
       return
     }
     if (state.scene === 'title') {

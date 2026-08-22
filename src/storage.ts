@@ -1,4 +1,5 @@
 import type { BestRecord, Mode, Progress } from './types'
+import { progressKey } from './games/registry'
 
 export const EMPTY_RECORD: BestRecord = {
   cleared: false,
@@ -7,7 +8,6 @@ export const EMPTY_RECORD: BestRecord = {
   fewestDeaths: 0,
 }
 
-const KEY = (mode: Mode) => `leon_game.progress.${mode}`
 const MUTE_KEY = 'leon_game.muted'
 
 /** 시크릿 모드·차단 설정에서는 접근 자체가 throw한다. 저장 실패는 무시한다. */
@@ -37,9 +37,9 @@ function sanitize(v: unknown): BestRecord {
   }
 }
 
-/** 모드별 진행도 전체. 스테이지 id → 기록 */
-export function loadProgress(mode: Mode): Progress {
-  const raw = read(KEY(mode))
+/** 게임·모드별 진행도 전체. 스테이지 id → 기록 */
+export function loadProgress(gameId: string, mode: Mode): Progress {
+  const raw = read(progressKey(gameId, mode))
   if (!raw) return {}
   try {
     const parsed = JSON.parse(raw) as Record<string, unknown>
@@ -51,8 +51,8 @@ export function loadProgress(mode: Mode): Progress {
   }
 }
 
-export function saveProgress(mode: Mode, p: Progress): void {
-  write(KEY(mode), JSON.stringify(p))
+export function saveProgress(gameId: string, mode: Mode, p: Progress): void {
+  write(progressKey(gameId, mode), JSON.stringify(p))
 }
 
 export function recordFor(p: Progress, stageId: string): BestRecord {

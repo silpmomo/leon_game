@@ -15,6 +15,18 @@ function rects(): Record<Mode, Rect> {
   }
 }
 
+/** 좌상단 "← 게임" 버튼 — 허브로 돌아간다 */
+export const HUB_RECT: Rect = { x: 6, y: 6, w: 46, h: 15 }
+
+export function hubHitTest(px: number, py: number): boolean {
+  return (
+    px >= HUB_RECT.x
+    && px <= HUB_RECT.x + HUB_RECT.w
+    && py >= HUB_RECT.y
+    && py <= HUB_RECT.y + HUB_RECT.h
+  )
+}
+
 export function titleHitTest(px: number, py: number): Mode | null {
   const r = rects()
   for (const mode of ['practice', 'challenge'] as Mode[]) {
@@ -39,6 +51,15 @@ export function drawTitle(
   sky.addColorStop(1, '#6fa8cf')
   ctx.fillStyle = sky
   ctx.fillRect(0, 0, VIEW_W, VIEW_H)
+
+  // 허브로 돌아가기
+  ctx.fillStyle = 'rgba(255,255,255,.18)'
+  ctx.fillRect(HUB_RECT.x, HUB_RECT.y, HUB_RECT.w, HUB_RECT.h)
+  ctx.fillStyle = '#fff'
+  ctx.font = 'bold 8px sans-serif'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillText('← 게임', HUB_RECT.x + HUB_RECT.w / 2, HUB_RECT.y + HUB_RECT.h / 2 + 1)
 
   ctx.textAlign = 'center'
   ctx.textBaseline = 'alphabetic'
