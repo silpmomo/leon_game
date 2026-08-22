@@ -67,7 +67,7 @@ export type TileGrid = {
 }
 
 /** 스테이지 배경·타일 색 묶음 */
-export type Theme = 'day' | 'underground' | 'night' | 'castle' | 'ice'
+export type Theme = 'day' | 'underground' | 'night' | 'castle' | 'ice' | 'cloud'
 
 /**
  * small → big → (ball | bolt).

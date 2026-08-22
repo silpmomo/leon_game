@@ -53,6 +53,14 @@ describe('게임 레지스트리', () => {
     expect(gameById('없음')).toBeUndefined()
   })
 
+  it('부제에 탄 수를 박아 두지 않는다 — 탄이 늘면 낡는다', () => {
+    // 20탄에서 30탄이 됐을 때 카드에 '전 20탄' 이 그대로 남아 있었다.
+    // 개수는 progressLabel 이 실제 목록 길이에서 만든다.
+    for (const g of GAMES) {
+      expect(g.subtitle, `${g.id} 부제`).not.toMatch(/\d+\s*탄/)
+    }
+  })
+
   it('모든 항목에 제목·설명·강조색이 있다', () => {
     for (const g of GAMES) {
       expect(g.title.length, g.id).toBeGreaterThan(0)

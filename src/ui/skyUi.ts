@@ -100,7 +100,7 @@ export function drawSkyTitle(
 
   ctx.font = '8px sans-serif'
   ctx.fillStyle = 'rgba(255,255,255,.85)'
-  ctx.fillText('횡스크롤 슈팅 · 전 10탄 · 미사일은 자동', VIEW_W / 2, 66)
+  ctx.fillText(`횡스크롤 슈팅 · 전 ${SKY_STAGES.length}탄 · 미사일은 자동`, VIEW_W / 2, 66)
 
   const r = modeRects()
   const labels: Record<SkyMode, [string, string]> = {

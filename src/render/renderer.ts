@@ -29,6 +29,8 @@ const THEME: Record<Theme, { sky: [string, string, string]; tint: string | null 
   night: { sky: ['#141a33', '#222b52', '#33406f'], tint: 'rgba(91,91,168,.28)' },
   castle: { sky: ['#2a1114', '#3d1a1c', '#4f2422'], tint: 'rgba(192,90,74,.3)' },
   ice: { sky: ['#a8dcf0', '#cdeaf7', '#e8f6fc'], tint: 'rgba(150,215,240,.28)' },
+  // 3월드 — 구름 위. 아래로 갈수록 흐려져 높이 떠 있는 느낌을 준다
+  cloud: { sky: ['#5aa8e8', '#a8d8f5', '#e8f4fc'], tint: 'rgba(255,255,255,.18)' },
 }
 
 /** 얼굴/몸통 비율. 합이 스프라이트 전체 높이가 된다. */

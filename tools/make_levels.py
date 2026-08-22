@@ -31,6 +31,12 @@ SOLID_CH = set('#BbH?@*p|SEI')
 #: 계산되는 값(7타일)보다 한 칸 좁게 잡아 여유를 둔다.
 MAX_PIT = 6
 
+#: 도움닫기 없이(제자리·걷기) 뛰어 건널 수 있는 최대 폭.
+#: derive().walkReach = 90px/s × 0.8s = 72px = 4.5타일 → 4.
+#: 움직이는 발판 위에서는 3타일밖에 못 달리므로 달리기 거리(MAX_PIT)를
+#: 쓰면 안 된다. 발판에서 출발하는 점프는 전부 이 값을 쓴다.
+MAX_HOP = 4
+
 #: 점프로 올라설 수 있는 최대 높이(타일). 최고 점프 73px / 타일 16px = 4.57
 #: → 4타일. 높이 5 파이프는 80px 를 올라야 해서 넘을 수 없다.
 MAX_CLIMB = 4
@@ -193,6 +199,100 @@ def spring(w, xs):
     for x in xs:
         line[x] = 'S'
     return Sec(_rows(w, {9: ''.join(line)}))
+
+
+def _movers(start, n, row, rng, speed):
+    """구덩이를 건널 움직이는 발판을 자동 배치한다.
+
+    좌표를 손으로 적으면 구간 폭이 바뀔 때마다 발판이 구덩이를 빗나가
+    통과 불가 레벨이 된다. 고정 디딤돌(_stepping_stones)과 같은 이유로
+    여기서 계산한다. 발판 하나가 쓸고 가는 범위는 [x-rng, x+rng+2] 다
+    (발판 폭 3타일).
+    """
+    out = []
+    x = start + rng
+    while True:
+        out.append((x, row, 'x', rng, speed))
+        row = 6 if row == 7 else 7
+        # 발판에서 건너편으로 뛰는 마지막 점프는 도움닫기가 없다
+        if (start + n) - (x + rng + 2) - 1 <= MAX_HOP:
+            break
+        # 앞 발판의 오른쪽 끝과 다음 발판의 왼쪽 끝 사이가 3타일이 되게
+        x += 2 * rng + 6
+    return out
+
+
+def _assert_crossable(start, n, plats):
+    """왼쪽 가장자리 → 발판들 → 오른쪽 가장자리가 점프 거리로 이어지는가.
+
+    첫 점프만 땅에서 출발하므로 달리기 거리(MAX_PIT)를 쓰고, 발판에서
+    출발하는 나머지 점프는 도움닫기가 없어 걷기 거리(MAX_HOP)를 쓴다.
+    이 구분을 안 하면 3타일짜리 발판 위에서 6타일을 뛰라는 레벨이 나온다.
+    """
+    spans = sorted(((x - rng, x + rng + 2) for x, _r, _a, rng, _s in plats))
+    cur = start - 1
+    first = True
+    for x0, x1 in spans:
+        gap = x0 - cur - 1
+        limit = MAX_PIT if first else MAX_HOP
+        assert gap <= limit, (
+            f'구덩이 {start}+{n}: 발판까지 {gap}타일 — '
+            f'{"달려서" if first else "발판에서"} 뛸 수 있는 {limit} 를 넘는다'
+        )
+        cur = max(cur, x1)
+        first = False
+    gap = (start + n) - cur - 1
+    assert gap <= MAX_HOP, (
+        f'구덩이 {start}+{n}: 마지막 발판에서 건너편까지 {gap}타일 — '
+        f'도움닫기 없이 뛸 수 있는 {MAX_HOP} 를 넘는다'
+    )
+
+
+def cross(w, gaps, fill=D, row=7, rng=3, speed=34):
+    """움직이는 발판으로 건너는 구덩이(또는 용암).
+
+    pit() 과 달리 고정 디딤돌을 깔지 않는다. 3월드의 새 요소다 —
+    엔진은 처음부터 움직이는 발판을 지원했지만 1·2월드에서는 안 썼다.
+    """
+    floor = list('#' * w)
+    plats = []
+    for start, n in gaps:
+        assert start >= 1, f'구덩이가 구간 맨 앞({start})에서 시작하면 발 디딜 데가 없다'
+        assert start + n < w, f'구덩이 {start}+{n} 이 구간 폭 {w} 를 넘는다'
+        for i in range(start, start + n):
+            floor[i] = fill
+        # 좁은 구덩이에 큰 왕복폭을 주면 발판이 땅 위까지 미끄러져 나온다
+        r = max(1, min(rng, (n - 3) // 2))
+        ps = _movers(start, n, row, r, speed)
+        _assert_crossable(start, n, ps)
+        plats += ps
+    return Sec(_rows(w, floor=''.join(floor)), plats)
+
+
+def lift(w, specs, ledge=None):
+    """세로 승강기. specs: [(x, y, rng, speed)]
+
+    ledge: (x0, n, row) — 승강기로 올라가 닿는 벽돌 선반. 코인을 얹는다.
+    승강기 꼭대기가 지면에서 MAX_CLIMB 안에 있어야 도달성 검사를 통과한다.
+    """
+    spec = {r: list(D * w) for r in range(10)}
+    if ledge:
+        lx, ln, lrow = ledge
+        for i in range(lx, lx + ln):
+            assert 0 <= i < w, f'선반 {lx}+{ln} 이 구간 폭 {w} 밖'
+            spec[lrow][i] = 'B'
+        for i in range(lx + 1, lx + ln - 1, 2):
+            spec[lrow - 1][i] = 'o'
+    plats = []
+    for x, y, rng, speed in specs:
+        top = y - rng
+        assert 9 - top <= MAX_CLIMB, (
+            f'승강기 꼭대기 행 {top} 은 지면에서 {9 - top}타일 — '
+            f'점프로 닿는 {MAX_CLIMB} 를 넘어 탈 수가 없다'
+        )
+        assert top >= 1, f'승강기가 화면 위로 나간다 (행 {top})'
+        plats.append((x, y, 'y', rng, speed))
+    return Sec(_rows(w, {r: ''.join(v) for r, v in spec.items()}), plats)
 
 
 def ice(w, gaps=None):
@@ -586,6 +686,167 @@ stage210 = stage(20, '2-10', 'castle', [
 
 STAGES += [stage21, stage22, stage23, stage24, stage25,
            stage26, stage27, stage28, stage29, stage210]
+
+
+# ══════════════════════════════════════════════════════════════
+# 3월드 — 움직이는 발판
+#
+# 엔진은 처음부터 움직이는 발판을 지원했지만 1·2월드에서는 한 번도 쓰지
+# 않았다. 3월드의 새 요소가 이것이다. 3-1 에서 적 없이 하나만 놓고 배우게
+# 하고, 뒤로 갈수록 용암 위·얼음 위로 옮겨 간다. 세로 승강기는 점프로는
+# 절대 닿지 않는 선반(코인)을 열어 준다.
+# ══════════════════════════════════════════════════════════════
+
+# ── 3-1 — 구름 위, 움직이는 발판 소개 ───────────────────────
+stage31 = stage(21, '3-1', 'cloud', [
+    coins(20, [8, 10, 12]).e('broccoli', 16),
+    cross(24, [(8, 9)]),                       # 첫 발판 — 적 없이 타는 법만
+    blocks(22, [(5, 'B'), (6, '@'), (7, 'B'), (15, '?')]).e('broccoli', 18),
+    cross(26, [(6, 12)]).e('flyer', 22, y=5),
+    flat(20).e('soup', 8).e('broccoli', 16),
+    lift(24, [(9, 7, 2, 30)], ledge=(13, 8, 4)),
+    pipes(20, [(5, 3), (14, 4)]).e('broccoli', 10),
+    cross(26, [(6, 8), (17, 6)]),
+    stairs(20, 10, 5).e('broccoli', 4),
+    flat(16).e('broccoli', 5),
+])
+
+# ── 3-2 — 구름 위, 발판 + 나는 적 ───────────────────────────
+stage32 = stage(22, '3-2', 'cloud', [
+    flat(20).e('broccoli', 15),
+    blocks(22, [(6, 'B'), (7, '*'), (8, 'B')]).e('flyer', 16, y=5),
+    cross(26, [(6, 12)]).e('flyer', 22, y=4),
+    coins(20, [5, 7, 9], row=3).e('broccoli', 16),
+    cross(28, [(6, 14)]).e('flyer', 24, y=6),
+    lift(22, [(8, 7, 2, 34)], ledge=(12, 8, 4)).e('spiky', 4),
+    ceiling(24, [(4, 4), (16, 4)]).e('crocodile', 10),
+    cross(26, [(7, 10)]).e('flyer', 21, y=5),
+    stairs(20, 10, 5).e('broccoli', 4),
+    flat(16).e('flyer', 6, y=5).e('broccoli', 11),
+])
+
+# ── 3-3 — 구름 위, 승강기 + 가시 적 ─────────────────────────
+stage33 = stage(23, '3-3', 'cloud', [
+    coins(20, [7, 9, 11]).e('spiky', 16),
+    blocks(22, [(6, '@'), (14, 'E')]),
+    lift(24, [(7, 7, 2, 30), (16, 7, 2, 38)], ledge=(11, 5, 4)).e('spiky', 3),
+    cross(26, [(6, 12)]).e('flyer', 22, y=5),
+    flat(22).e('thrower', 10).e('spiky', 18),
+    cross(28, [(6, 9), (18, 7)]).e('flyer', 3, y=4),
+    lift(22, [(9, 7, 2, 40)], ledge=(13, 7, 4)).e('spiky', 4),
+    ceiling(24, [(4, 5), (15, 5)]).e('thrower', 10),
+    stairs(20, 10, 6).e('spiky', 4),
+    flat(18).e('broccoli', 6),
+])
+
+# ── 3-4 — 지하, 발판 + 가시 타일 ────────────────────────────
+stage34 = stage(24, '3-4', 'underground', [
+    ceiling(20, [(0, 20)], row=2).e('broccoli', 16),
+    spikes(20, [9, 10, 11]),
+    blocks(22, [(6, 'b'), (7, '@'), (8, 'b')]).e('spiky', 18),
+    cross(26, [(6, 11)]).e('flyer', 22, y=5),
+    spikes(24, [5, 6, 7, 16, 17]).e('thrower', 12),
+    cross(26, [(7, 12)]),
+    ceiling(22, [(3, 4), (14, 5)]).e('spiky', 9),
+    cross(24, [(6, 9)]).e('flyer', 20, y=6),
+    spikes(22, [5, 6, 14, 15, 16]).e('spiky', 10),
+    stairs(20, 9, 6).e('flyer', 17, y=6),
+    flat(16).e('thrower', 5),
+])
+
+# ── 3-5 — 지하, 용암 위 발판 릴레이 ─────────────────────────
+stage35 = stage(25, '3-5', 'underground', [
+    ceiling(20, [(0, 20)], row=2).e('broccoli', 15),
+    blocks(20, [(6, '*'), (12, 'E')]),
+    cross(28, [(6, 14)], fill='~'),            # 첫 용암 위 발판
+    spikes(22, [4, 5, 15, 16]).e('spiky', 10),
+    cross(30, [(6, 16)], fill='~').e('flyer', 25, y=5),
+    ceiling(22, [(5, 5), (14, 4)]).e('crocodile', 10),
+    cross(26, [(6, 8), (17, 6)], fill='~').e('thrower', 3),
+    spring(22, [6, 15]).e('flyer', 11, y=6),
+    stairs(18, 8, 5).e('spiky', 3),
+    flat(16).e('broccoli', 5),
+])
+
+# ── 3-6 — 얼음, 미끄러지며 발판 타기 ────────────────────────
+stage36 = stage(26, '3-6', 'ice', [
+    coins(20, [8, 10, 12]).e('broccoli', 16),
+    ice(20).e('spiky', 14),
+    cross(26, [(6, 12)]).e('flyer', 22, y=5),
+    ice(22, [(9, 4)]).e('spiky', 3),
+    cross(28, [(6, 14)]).e('flyer', 24, y=6),
+    lift(22, [(9, 7, 2, 36)], ledge=(13, 7, 4)).e('spiky', 4),
+    ice(24, [(7, 5)]).e('thrower', 17),
+    cross(26, [(7, 10)]).e('flyer', 21, y=4),
+    stairs(20, 10, 6).e('spiky', 4),
+    flat(18).e('broccoli', 6),
+])
+
+# ── 3-7 — 밤, 발판 + 적 밀도 ────────────────────────────────
+stage37 = stage(27, '3-7', 'night', [
+    coins(20, [8, 10, 12]).e('flyer', 5, y=6).e('flyer', 15, y=4),
+    blocks(22, [(5, 'B'), (6, '@'), (7, 'E')]).e('spiky', 18),
+    cross(28, [(6, 14)]).e('flyer', 24, y=5),
+    ice(22).e('spiky', 6).e('spiky', 16),
+    cross(30, [(6, 16)]).e('flyer', 25, y=6),
+    spring(22, [6, 15]).e('thrower', 11),
+    lift(24, [(8, 7, 2, 42)], ledge=(12, 9, 4)).e('spiky', 4),
+    cross(26, [(7, 11)]).e('flyer', 22, y=4),
+    stairs(20, 10, 6).e('spiky', 4),
+    flat(18).e('crocodile', 5),
+])
+
+# ── 3-8 — 성, 용암 위 발판 + 승강기 ─────────────────────────
+stage38 = stage(28, '3-8', 'castle', [
+    ceiling(18, [(0, 18)], row=2).e('broccoli', 14),
+    blocks(20, [(6, '@'), (13, 'E')]),
+    cross(28, [(6, 14)], fill='~').e('thrower', 24),
+    flat(20).e('flyer', 8, y=5).e('spiky', 16),
+    cross(30, [(6, 9), (19, 8)], fill='~'),
+    lift(22, [(9, 7, 2, 44)], ledge=(13, 7, 4)).e('spiky', 4),
+    cross(26, [(7, 12)], fill='~').e('flyer', 22, y=5),
+    ceiling(22, [(4, 5), (14, 5)]).e('crocodile', 10),
+    stairs(20, 10, 6).e('thrower', 4),
+    flat(18).e('spiky', 6),
+])
+
+# ── 3-9 — 성, 총복습 ────────────────────────────────────────
+stage39 = stage(29, '3-9', 'castle', [
+    ceiling(18, [(0, 18)], row=2).e('broccoli', 14).e('flyer', 8, y=5),
+    blocks(20, [(6, '@'), (12, 'E')]),
+    cross(28, [(6, 14)], fill='~').e('thrower', 24),
+    spikes(20, [6, 7, 12, 13]).e('crocodile', 16),
+    cross(30, [(6, 16)], fill='~').e('flyer', 25, y=4),
+    ice(20).e('spiky', 6).e('spiky', 14),
+    lift(24, [(8, 7, 2, 46), (17, 7, 2, 34)], ledge=(12, 5, 4)),
+    ceiling(24, [(4, 5), (15, 5)]).e('thrower', 10).e('spiky', 18),
+    cross(26, [(7, 12)], fill='~'),
+    stairs(20, 10, 6).e('flyer', 4, y=5),
+    flat(18).e('crocodile', 6),
+])
+
+# ── 3-10 — 최종전. 보스 둘 ──────────────────────────────────
+stage310 = stage(30, '3-10', 'castle', [
+    ceiling(18, [(0, 18)], row=2).e('spiky', 14),
+    blocks(20, [(6, '@'), (12, 'E')]),
+    cross(28, [(6, 14)], fill='~').e('thrower', 24),
+    spikes(20, [6, 7, 13, 14]).e('flyer', 10, y=5),
+    cross(30, [(6, 9), (19, 8)], fill='~').e('flyer', 15, y=4),
+    # 최종전 보급 — 축구공 둘, 전기 하나. 보스가 둘이라 넉넉히 준다
+    blocks(24, [(4, '*'), (11, 'E'), (18, '*')]),
+    # 투기장 1 — 첫 보스
+    flat(34).e('boss', 18, y=9).e('flyer', 6, y=4).e('thrower', 30),
+    # 중간 보급
+    blocks(18, [(5, '*'), (12, 'E')]),
+    # 투기장 2 — 두 번째 보스에 호위가 붙는다
+    flat(38).e('boss', 20, y=9).e('spiky', 5).e('thrower', 34)
+             .e('flyer', 11, y=4).e('flyer', 30, y=5),
+    flat(14),
+], flag_top=3)
+
+
+STAGES += [stage31, stage32, stage33, stage34, stage35,
+           stage36, stage37, stage38, stage39, stage310]
 
 
 if __name__ == '__main__':

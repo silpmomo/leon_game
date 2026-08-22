@@ -40,7 +40,8 @@ function inside(r: Rect, px: number, py: number): boolean {
 
 /**
  * 월드 탭 클릭 판정. 첫 탄이 잠긴 월드는 고를 수 없다.
- * 2월드는 1-10 을 깨야 열린다 — 잠금 규칙이 평평한 목록 위에서 그대로 동작한다.
+ * 다음 월드는 앞 월드의 마지막 탄을 깨야 열린다. 월드가 몇 개든
+ * 잠금 규칙이 평평한 목록 위에서 그대로 동작한다.
  */
 export function worldTabHitTest(
   px: number,
@@ -85,6 +86,7 @@ const THEME_TINT: Record<Theme, string> = {
   night: '#5b5ba8',
   castle: '#c05a4a',
   ice: '#5aa8c0',
+  cloud: '#78b8e0',
 }
 
 const THEME_LABEL: Record<Theme, string> = {
@@ -93,6 +95,7 @@ const THEME_LABEL: Record<Theme, string> = {
   night: '밤',
   castle: '성',
   ice: '얼음',
+  cloud: '구름',
 }
 
 export function drawStageSelect(

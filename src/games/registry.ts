@@ -12,6 +12,13 @@ export type GameStatus = 'ready' | 'soon'
 export type GameEntry = {
   id: string
   title: string
+  /**
+   * 카드 한 줄 설명.
+   *
+   * **탄 수를 여기 적지 않는다.** 탄이 늘 때마다 같이 고쳐야 하고,
+   * 실제로 20탄에서 30탄이 되었을 때 이 문구만 20탄으로 남아 있었다.
+   * 개수는 progressLabel 이 STAGES.length 에서 만들어 준다.
+   */
   subtitle: string
   status: GameStatus
   /** 카드 강조색 */
@@ -27,7 +34,7 @@ export const GAMES: readonly GameEntry[] = [
   {
     id: 'adventure',
     title: '리온의 대모험',
-    subtitle: '횡스크롤 액션 · 전 20탄',
+    subtitle: '횡스크롤 액션 · 달리고 뛰고 던지기',
     status: 'ready',
     accent: '#4bc0ae',
     frame: 'face',
@@ -35,7 +42,7 @@ export const GAMES: readonly GameEntry[] = [
   {
     id: 'sky',
     title: '리온의 하늘전투',
-    subtitle: '횡스크롤 슈팅 · 전 10탄',
+    subtitle: '횡스크롤 슈팅 · 자동 발사 + 궁극기',
     status: 'ready',
     accent: '#f5a623',
     frame: 'face',
