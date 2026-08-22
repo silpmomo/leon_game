@@ -1,7 +1,16 @@
-# 두 번째 게임 추가하기
+# 게임 추가하기
 
 첫 화면은 **게임 허브**다. `src/games/registry.ts` 의 `GAMES` 배열을 그대로 그린다.
 게임을 늘리려면 이 파일에 항목을 넣고, `main.ts` 에서 그 id 로 갈라 주면 된다.
+
+지금 들어 있는 게임:
+
+| id | 제목 | 구조 |
+|---|---|---|
+| `adventure` | 리온의 대모험 | `src/game/`, `src/world/`, `src/levels/` (20탄) |
+| `sky` | 리온의 하늘전투 | `src/sky/` + `src/skyApp.ts` (10탄) — `docs/SKY.md` |
+
+두 번째 게임(`sky`)이 이 문서대로 붙었다. 세 번째도 같은 길을 따르면 된다.
 
 ## 화면 흐름
 
@@ -20,6 +29,7 @@ hub (게임 고르기)
 // src/games/registry.ts
 export const GAMES: readonly GameEntry[] = [
   { id: 'adventure', /* … 기존 … */ },
+  { id: 'sky', /* … 기존 … */ },
   {
     id: 'puzzle',              // 영문 소문자. localStorage 이름공간이 된다
     title: '리온의 퍼즐',
@@ -27,6 +37,7 @@ export const GAMES: readonly GameEntry[] = [
     status: 'ready',           // 만들기 전에는 'soon'
     accent: '#f2b134',         // 카드 강조색
     emoji: '🧩',               // 또는 frame: '아틀라스 프레임 이름'
+    badge: '🧊',               // 얼굴 프레임을 공유할 때 카드를 구분해 준다
   },
 ]
 ```
@@ -41,6 +52,7 @@ export const GAMES: readonly GameEntry[] = [
 | 게임 | 키 |
 |---|---|
 | `adventure` | `leon_game.progress.practice` |
+| `sky` | `leon_game.sky.progress.practice` |
 | 그 외 | `leon_game.<id>.progress.practice` |
 
 첫 게임만 예전 키를 그대로 쓴다. **키를 바꾸면 이미 깬 기록이 날아가기 때문이다.**
@@ -49,21 +61,22 @@ export const GAMES: readonly GameEntry[] = [
 
 ## 3. main.ts 에서 라우팅
 
-지금은 게임이 하나라 `hub → title` 로 바로 간다. 두 번째 게임을 붙일 때는
-고른 `gameId` 에 따라 씬을 갈라 준다.
+`main.ts` 에 `route` 변수 하나가 있다. 이게 지금 어느 게임을 보고 있는지다.
 
 ```ts
-if (state.scene === 'hub') {
-  const picked = gameHitTest(px, py)
-  if (picked === 'adventure') { gameId = picked; state.scene = 'title' }
-  else if (picked === 'puzzle') { /* 새 게임 진입 */ }
-  return false
-}
+type Route = 'hub' | 'adventure' | 'sky'
+let route: Route = 'hub'
 ```
 
-게임이 셋 이상으로 늘고 각자 씬·루프가 복잡해지면, 그때 게임마다
-`{ init, update, render }` 를 갖는 모듈로 쪼개는 것이 낫다. 둘일 때 미리 그
-추상을 만들 필요는 없다.
+`update` · `render` · 포인터 · 키보드 네 군데에서 `route` 로 갈라진다.
+**기존 게임 코드는 건드리지 않는다** — 분기 조건만 늘린다. 이게 규칙이다.
+이미 돌아가는 게임을 고쳐 가며 새 게임을 붙이면 둘 다 망가진다.
+
+새 게임은 `src/<이름>App.ts` 에 껍데기를 하나 만들어
+`{ screen, enter, update, render, pointerDown/Move/Up, key, escape, blur, progress }`
+를 내보낸다. `src/skyApp.ts` 가 그 본보기다.
+게임 규칙 자체는 DOM 을 모르는 순수 모듈(`src/sky/`)에 두고,
+eslint `import/no-restricted-paths` 의 PURE 목록에 디렉터리를 추가한다.
 
 ## 4. 공유되는 것
 
@@ -87,7 +100,10 @@ if (state.scene === 'hub') {
 ## 5. 체크리스트
 
 - [ ] `GAMES` 에 항목 추가 (`status: 'soon'` 으로 먼저 자리만 잡아도 된다)
+- [ ] 순수 계층 디렉터리를 `eslint.config.js` 의 `PURE` 에 추가
+- [ ] `main.ts` 의 `Route` 에 id 추가 + 네 군데 분기
 - [ ] `tests/hub.test.ts` 통과 — 카드가 화면 안에 들어가고 키가 안 겹치는지
 - [ ] 진행도 키가 다른 게임과 겹치지 않는지
-- [ ] 새 스프라이트가 있으면 `REQUIRED_FRAMES` 에 등록
+- [ ] 새 스프라이트가 있으면 도트 생성 스크립트를 `npm run assets` 에 추가
+- [ ] 데이터 검증 함수를 만들어 `main.ts` 부팅 시 assert (하늘전투의 `assertValidSkyStages`)
 - [ ] `npm test && npm run lint && npm run build`

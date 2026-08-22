@@ -68,6 +68,15 @@ function drawThumb(
   ctx.fillText(g.emoji ?? '🎮', cx, cy)
 }
 
+/** 같은 얼굴을 쓰는 카드끼리 구분되도록 작은 뱃지를 얹는다 */
+function drawBadge(ctx: CanvasRenderingContext2D, g: GameEntry, cx: number, cy: number): void {
+  if (!g.badge) return
+  ctx.font = '13px sans-serif'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillText(g.badge, cx, cy)
+}
+
 export function drawGameSelect(
   ctx: CanvasRenderingContext2D,
   atlas: LoadedAtlas,
@@ -114,6 +123,7 @@ export function drawGameSelect(
     ctx.save()
     if (!ready) ctx.globalAlpha = 0.45
     drawThumb(ctx, atlas, g, r.x + r.w / 2, r.y + 32)
+    drawBadge(ctx, g, r.x + r.w / 2 + 14, r.y + 42)
     ctx.restore()
 
     ctx.textAlign = 'center'

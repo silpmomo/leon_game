@@ -26,9 +26,21 @@ describe('게임 레지스트리', () => {
     expect(GAMES[0]!.status).toBe('ready')
   })
 
-  it('두 번째 자리가 준비 중으로 잡혀 있다', () => {
+  it('두 번째 게임은 하늘전투다', () => {
     expect(GAMES.length).toBeGreaterThanOrEqual(2)
-    expect(GAMES[1]!.status).toBe('soon')
+    expect(GAMES[1]!.id).toBe('sky')
+    expect(GAMES[1]!.title).toBe('리온의 하늘전투')
+    expect(GAMES[1]!.status).toBe('ready')
+  })
+
+  it('같은 얼굴을 쓰는 카드끼리는 뱃지로 구분된다', () => {
+    // 두 게임 다 리온이라 썸네일이 같다. 뱃지가 없으면 한눈에 구분이 안 된다
+    const sameFrame = GAMES.filter((g) => g.frame === 'face')
+    if (sameFrame.length > 1) {
+      const marks = sameFrame.map((g) => g.badge ?? '')
+      expect(marks.filter(Boolean).length, '뱃지 없는 카드가 겹친다')
+        .toBeGreaterThanOrEqual(sameFrame.length - 1)
+    }
   })
 
   it('id 가 중복되지 않는다', () => {
@@ -95,7 +107,12 @@ describe('진행도 표시', () => {
   })
 
   it('준비 중인 게임은 진행도 대신 안내를 보여준다', () => {
-    expect(progressLabel(GAMES[1]!, {}, 0)).toBe('곧 나옵니다')
+    // GAMES 안에 'soon' 이 없을 수도 있으므로 규칙 자체를 검사한다
+    const soon: GameEntry = {
+      id: 'later', title: '나중 게임', subtitle: '준비 중',
+      status: 'soon', accent: '#5a6472', emoji: '🚧',
+    }
+    expect(progressLabel(soon, {}, 0)).toBe('곧 나옵니다')
   })
 })
 
@@ -137,8 +154,13 @@ describe('허브 클릭 판정', () => {
     expect(gameHitTest(...center(0))).toBe('adventure')
   })
 
-  it('준비 중인 게임을 누르면 null 이다', () => {
-    expect(gameHitTest(...center(1))).toBeNull()
+  it('할 수 있는 카드만 열리고 준비 중인 카드는 안 열린다', () => {
+    // 목록이 바뀌어도 성립하는 규칙으로 검사한다
+    for (let i = 0; i < GAMES.length; i++) {
+      const g = GAMES[i]!
+      expect(gameHitTest(...center(i)), g.id)
+        .toBe(g.status === 'ready' ? g.id : null)
+    }
   })
 
   it('카드 밖을 누르면 null 이다', () => {

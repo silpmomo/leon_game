@@ -20,6 +20,7 @@ const N = {
   A2: 110,
   B2: 123,
   C3: 131,
+  D3: 147,
   E3: 165,
   F3: 175,
   G3: 196,
@@ -122,6 +123,21 @@ export const SFX: Record<string, SfxSpec> = {
     vibrato: 30,
   },
 
+  // 하늘전투 — 자동 발사. 아주 짧고 작아야 한다. 초당 10발이 나간다
+  skyShot: { wave: 'square', notes: [N.A5], noteMs: 22, gain: 0.06 },
+
+  // 하늘전투 — 적 격추
+  skyKill: { wave: 'noise', notes: [1], noteMs: 80, gain: 0.2, noise: 'crash' },
+
+  // 하늘전투 — 보스 등장 경보
+  skyAlarm: {
+    wave: 'sawtooth',
+    notes: [N.E4, N.A4, N.E4, N.A4],
+    noteMs: 130,
+    gain: 0.24,
+    vibrato: 8,
+  },
+
   // 보스 격파 — 길게 무너지는 소리
   bossDown: {
     wave: 'sawtooth',
@@ -137,11 +153,9 @@ export const SFX: Record<string, SfxSpec> = {
 // 16분음표 격자 위의 스텝 시퀀서. 4마디(64스텝) 루프.
 // 원곡이다 — 기존 게임 곡을 옮기지 않았다.
 
-const BPM = 132
 const STEPS_PER_BAR = 16
 const BARS = 4
 const TOTAL_STEPS = STEPS_PER_BAR * BARS
-const STEP_S = 60 / BPM / 4
 
 /** [시작 스텝, 주파수, 길이(스텝)] */
 type Ev = readonly [number, number, number]
@@ -164,6 +178,31 @@ const BASS: readonly Ev[] = [
   [48, N.G2, 6], [56, N.G2, 6],
 ]
 
+/**
+ * 하늘전투 곡. 단조로 몰아붙인다 — 슈팅에 대모험의 밝은 곡을 쓰면
+ * 화면과 어긋난다. 8분음표 베이스가 계속 굴러가게 깔았다.
+ */
+const SKY_MELODY: readonly Ev[] = [
+  // 1마디 — A단조 상승
+  [0, N.A4, 2], [2, N.C5, 2], [4, N.E5, 2], [6, N.D5, 2],
+  [8, N.C5, 2], [10, N.E5, 2], [12, N.A5, 4],
+  // 2마디 — 긴장
+  [16, N.G5, 2], [18, N.E5, 2], [20, N.F5, 2], [22, N.D5, 2],
+  [24, N.E5, 4], [28, N.C5, 4],
+  // 3마디 — 더 위로
+  [32, N.D5, 2], [34, N.F5, 2], [36, N.A5, 2], [38, N.G5, 2],
+  [40, N.F5, 2], [42, N.A5, 2], [44, N.C6, 4],
+  // 4마디 — 되돌림
+  [48, N.B4, 2], [50, N.D5, 2], [52, N.E5, 4], [56, N.A4, 4], [60, N.E5, 4],
+]
+
+const SKY_BASS: readonly Ev[] = [
+  [0, N.A2, 3], [4, N.A2, 3], [8, N.A2, 3], [12, N.G2, 3],
+  [16, N.F3, 3], [20, N.F3, 3], [24, N.C3, 3], [28, N.C3, 3],
+  [32, N.D3, 3], [36, N.D3, 3], [40, N.F3, 3], [44, N.F3, 3],
+  [48, N.E3, 3], [52, N.E3, 3], [56, N.A2, 3], [60, N.A2, 3],
+]
+
 /** 킥 스텝 */
 const KICK = [0, 8, 16, 24, 32, 40, 48, 56]
 /** 하이햇 스텝 (뒷박) */
@@ -174,6 +213,8 @@ const BASS_GAIN = 0.1
 const KICK_GAIN = 0.16
 const HAT_GAIN = 0.05
 
+export type TrackName = 'adventure' | 'sky'
+
 /** 스텝별로 미리 묶어 O(1) 조회 */
 function bucket(events: readonly Ev[]): (readonly Ev[])[] {
   const out: Ev[][] = Array.from({ length: TOTAL_STEPS }, () => [])
@@ -181,8 +222,26 @@ function bucket(events: readonly Ev[]): (readonly Ev[])[] {
   return out
 }
 
-const MELODY_AT = bucket(MELODY)
-const BASS_AT = bucket(BASS)
+type Track = {
+  melody: (readonly Ev[])[]
+  bass: (readonly Ev[])[]
+  kick: readonly number[]
+  /** 스네어 대신 쓰는 뒷박 노이즈 */
+  hat: readonly number[]
+  bpm: number
+}
+
+const TRACKS: Record<TrackName, Track> = {
+  adventure: { melody: bucket(MELODY), bass: bucket(BASS), kick: KICK, hat: HAT, bpm: 132 },
+  // 킥을 8분으로 깔아 계속 밀리는 느낌을 준다
+  sky: {
+    melody: bucket(SKY_MELODY),
+    bass: bucket(SKY_BASS),
+    kick: Array.from({ length: TOTAL_STEPS / 4 }, (_, i) => i * 4),
+    hat: Array.from({ length: TOTAL_STEPS / 2 }, (_, i) => i * 2 + 1),
+    bpm: 152,
+  },
+}
 
 /** 스케줄러가 미리 채워두는 시간 */
 const SCHEDULE_AHEAD_S = 0.2
@@ -195,7 +254,7 @@ export type Audio = {
   /** 사용자 제스처 안에서 불러야 한다 */
   unlock: () => void
   resume: () => Promise<void>
-  startBgm: () => void
+  startBgm: (track?: TrackName) => void
   stopBgm: () => void
   /** 진단용 — 컨텍스트 상태 */
   state: () => string
@@ -210,6 +269,7 @@ export function createAudio(): Audio {
   let isMuted = false
 
   let bgmTimer: number | null = null
+  let current: TrackName = 'adventure'
   let step = 0
   let nextStepTime = 0
 
@@ -349,15 +409,15 @@ export function createAudio(): Audio {
     })
   }
 
-  function scheduleStep(i: number, at: number): void {
-    for (const [, freq, len] of MELODY_AT[i] ?? []) {
-      tone('square', freq, at, len * STEP_S * 1000 * 0.92, MELODY_GAIN)
+  function scheduleStep(i: number, at: number, tr: Track, stepS: number): void {
+    for (const [, freq, len] of tr.melody[i] ?? []) {
+      tone('square', freq, at, len * stepS * 1000 * 0.92, MELODY_GAIN)
     }
-    for (const [, freq, len] of BASS_AT[i] ?? []) {
-      tone('triangle', freq, at, len * STEP_S * 1000 * 0.95, BASS_GAIN)
+    for (const [, freq, len] of tr.bass[i] ?? []) {
+      tone('triangle', freq, at, len * stepS * 1000 * 0.95, BASS_GAIN)
     }
-    if (KICK.includes(i)) noiseBurst(at, 70, KICK_GAIN, 'thud')
-    if (HAT.includes(i)) noiseBurst(at, 35, HAT_GAIN, 'hat')
+    if (tr.kick.includes(i)) noiseBurst(at, 70, KICK_GAIN, 'thud')
+    if (tr.hat.includes(i)) noiseBurst(at, 35, HAT_GAIN, 'hat')
   }
 
   return {
@@ -408,10 +468,18 @@ export function createAudio(): Audio {
       if (c && c.state === 'suspended') await c.resume()
     },
 
-    startBgm(): void {
-      if (bgmTimer !== null) return
+    startBgm(track: TrackName = 'adventure'): void {
+      if (bgmTimer !== null) {
+        if (track === current) return
+        // 곡이 바뀌면 갈아탄다. 게임을 옮겼는데 예전 곡이 계속 나오면 안 된다
+        window.clearInterval(bgmTimer)
+        bgmTimer = null
+      }
       const c = ensure()
       if (!c) return
+      current = track
+      const tr = TRACKS[track]
+      const stepS = 60 / tr.bpm / 4
       step = 0
       nextStepTime = c.currentTime + 0.06
 
@@ -420,8 +488,8 @@ export function createAudio(): Audio {
       const tick = (): void => {
         if (!ctx || ctx.state !== 'running' || isMuted) return
         while (nextStepTime < ctx.currentTime + SCHEDULE_AHEAD_S) {
-          scheduleStep(step, nextStepTime)
-          nextStepTime += STEP_S
+          scheduleStep(step, nextStepTime, tr, stepS)
+          nextStepTime += stepS
           step = (step + 1) % TOTAL_STEPS
         }
       }

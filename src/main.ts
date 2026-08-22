@@ -18,6 +18,10 @@ import { drawRotateOverlay, isPortrait } from './ui/orientation'
 import { drawTitle, hubHitTest, titleHitTest } from './ui/titleScreen'
 import { drawGameSelect, firstReadyGame, gameHitTest } from './ui/gameSelect'
 import { GAMES } from './games/registry'
+import { SKY_GAME_ID, createSkyApp } from './skyApp'
+import { SKY_STAGES } from './sky/stages'
+import { assertValidSkyStages } from './sky/schema'
+import { skyHubHitTest } from './ui/skyUi'
 import {
   backHitTest,
   drawStageSelect,
@@ -35,6 +39,7 @@ ctx.imageSmoothingEnabled = false
 // 잘못된 레벨로는 부팅하지 않는다. 검은 화면 대신 원인을 보여준다.
 try {
   for (const lv of STAGES) assertValidLevel(lv)
+  assertValidSkyStages(SKY_STAGES)
 } catch (e) {
   document.body.style.cssText =
     'background:#1b1020;color:#fdd;font:12px/1.7 monospace;padding:20px;white-space:pre-wrap'
@@ -44,7 +49,15 @@ try {
 
 const STAGE_IDS = STAGES.map((s) => s.id)
 
-/** 지금 고른 게임. 허브에서 정해진다. */
+/**
+ * 지금 어느 게임을 보고 있는가.
+ *
+ * 'hub' 는 게임 고르기 화면, 나머지는 각 게임이 화면을 통째로 가진다.
+ * 기존 게임의 흐름(state.scene)은 그대로 두고 바깥에 한 겹만 씌웠다.
+ */
+type Route = 'hub' | 'adventure' | 'sky'
+let route: Route = 'hub'
+
 const ADVENTURE = 'adventure'
 let gameId = ADVENTURE
 
@@ -55,13 +68,17 @@ const progress: Record<Mode, Progress> = {
 
 /** 허브 카드에 보여줄, 게임별 진행도 요약 */
 const hubRecords: Record<string, Progress> = { [ADVENTURE]: progress.practice }
-const hubTotals: Record<string, number> = { [ADVENTURE]: STAGES.length }
+const hubTotals: Record<string, number> = {
+  [ADVENTURE]: STAGES.length,
+  [SKY_GAME_ID]: SKY_STAGES.length,
+}
 
 function refreshHub(): void {
   // 두 모드 중 더 많이 깬 쪽을 대표로 보여준다
   const a = Object.values(progress.practice).filter((r) => r.cleared).length
   const b = Object.values(progress.challenge).filter((r) => r.cleared).length
   hubRecords[ADVENTURE] = a >= b ? progress.practice : progress.challenge
+  hubRecords[SKY_GAME_ID] = sky.progress()
 }
 
 let mode: Mode = 'practice'
@@ -69,7 +86,6 @@ let stageIndex = 0
 /** 스테이지 선택 화면에서 보고 있는 월드 (0부터) */
 let selWorld = 0
 let state = newGameState(STAGES[0] as LevelData, 'practice')
-state.scene = 'hub'
 state.muted = loadMuted()
 
 /** 시트가 로드될 때까지는 폴백 사각형으로 그린다 */
@@ -96,6 +112,10 @@ const input = createInput()
 const audio = createAudio()
 audio.setMuted(state.muted)
 
+const sky = createSkyApp(audio)
+sky.muteChanged(state.muted)
+refreshHub()
+
 /**
  * iOS는 사용자 제스처 안에서 컨텍스트를 만들고 소리를 한 번 내야 재생을
  * 허용한다. 반드시 제스처 핸들러에서 동기적으로 불러야 한다.
@@ -106,7 +126,10 @@ function unlockAudio(): void {
   audioUnlocked = true
   audio.unlock()
   void audio.resume().then(() => {
-    if (state.scene === 'playing' && !state.muted) audio.startBgm()
+    // 하늘전투는 자기 곡을 스스로 켠다. 여기서 켜면 대모험 곡이 겹친다
+    if (route === 'adventure' && state.scene === 'playing' && !state.muted) {
+      audio.startBgm()
+    }
   })
 }
 
@@ -175,24 +198,41 @@ function handleTap(px: number, py: number): boolean {
     state.muted = !state.muted
     saveMuted(state.muted)
     audio.setMuted(state.muted)
+    sky.muteChanged(state.muted)
     if (state.muted) audio.stopBgm()
-    else if (state.scene === 'playing') audio.startBgm()
+    else if (route === 'adventure' && state.scene === 'playing') audio.startBgm()
     return false
   }
 
-  if (state.scene === 'hub') {
+  if (route === 'hub') {
     const picked = gameHitTest(px, py)
-    if (picked) {
+    if (picked === SKY_GAME_ID) {
       gameId = picked
+      route = 'sky'
+      sky.enter()
+    } else if (picked) {
+      gameId = picked
+      route = 'adventure'
       state.scene = 'title'
       input.reset()
     }
     return false
   }
 
+  if (route === 'sky') {
+    // 타이틀 좌상단에서만 허브로 빠진다. 나머지는 하늘전투가 다 처리한다
+    if (sky.screen() === 'title' && skyHubHitTest(px, py)) {
+      route = 'hub'
+      sky.blur()
+      refreshHub()
+      return false
+    }
+    return true
+  }
+
   if (state.scene === 'title') {
     if (hubHitTest(px, py)) {
-      state.scene = 'hub'
+      route = 'hub'
       input.reset()
       return false
     }
@@ -240,25 +280,51 @@ canvas.addEventListener('pointerdown', (e) => {
   unlockAudio()
   const [px, py] = toLogical(e.clientX, e.clientY)
   if (!handleTap(px, py)) return
+  if (route === 'sky') {
+    sky.pointerDown(e.pointerId, px, py)
+    return
+  }
   input.onPointerDown(e.pointerId, px, py, state.player.power)
 })
 canvas.addEventListener('pointermove', (e) => {
-  input.onPointerMove(e.pointerId, ...toLogical(e.clientX, e.clientY), state.player.power)
+  const [px, py] = toLogical(e.clientX, e.clientY)
+  if (route === 'sky') {
+    sky.pointerMove(e.pointerId, px, py)
+    return
+  }
+  input.onPointerMove(e.pointerId, px, py, state.player.power)
 })
 for (const type of ['pointerup', 'pointercancel', 'lostpointercapture'] as const) {
   canvas.addEventListener(type, (e) => {
+    sky.pointerUp(e.pointerId)
     input.onPointerUp(e.pointerId)
   })
 }
 window.addEventListener('keydown', (e) => {
   unlockAudio()
-  if (state.scene === 'hub' && (e.code === 'Space' || e.code === 'Enter')) {
-    const first = firstReadyGame()
-    if (first) {
-      gameId = first
-      state.scene = 'title'
-      input.reset()
+  if (route === 'hub') {
+    if (e.code === 'Space' || e.code === 'Enter') {
+      const first = firstReadyGame()
+      if (first) {
+        gameId = first
+        route = first === SKY_GAME_ID ? 'sky' : 'adventure'
+        if (route === 'sky') sky.enter()
+        else state.scene = 'title'
+        input.reset()
+      }
     }
+    return
+  }
+
+  if (route === 'sky') {
+    if (e.code === 'Escape') {
+      if (sky.escape() === 'hub') {
+        route = 'hub'
+        refreshHub()
+      }
+      return
+    }
+    sky.key(e.code, true)
     return
   }
   if (state.scene === 'title' && (e.code === 'Space' || e.code === 'Enter')) {
@@ -290,7 +356,7 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'Escape') {
     // 게임 안이면 탄 고르기로, 탄 고르기·타이틀이면 한 단계 위로
     if (state.scene === 'select') state.scene = 'title'
-    else if (state.scene === 'title') state.scene = 'hub'
+    else if (state.scene === 'title') route = 'hub'
     else goSelect()
     input.reset()
     return
@@ -298,17 +364,31 @@ window.addEventListener('keydown', (e) => {
   input.onKey(e.code, true)
 })
 window.addEventListener('keyup', (e) => {
+  if (route === 'sky') {
+    sky.key(e.code, false)
+    return
+  }
   input.onKey(e.code, false)
 })
 window.addEventListener('blur', () => {
   input.reset()
+  sky.blur()
 })
 window.addEventListener('resize', resize)
 
 const loop = createLoop({
   update: (dt) => {
     if (isPortrait()) return
-    if (state.scene === 'hub' || state.scene === 'title' || state.scene === 'select') return
+    if (route === 'hub') return
+
+    if (route === 'sky') {
+      // refreshHub 를 매 프레임 부르지 않는다. 허브로 나갈 때만 갱신하면 된다
+      sky.update(dt)
+      tick += 1
+      return
+    }
+
+    if (state.scene === 'title' || state.scene === 'select') return
 
     input.beginFrame()
     const events = state.scene === 'playing' ? updateFrame(state, input.state, dt) : []
@@ -355,8 +435,12 @@ const loop = createLoop({
       drawRotateOverlay(ctx)
       return
     }
-    if (state.scene === 'hub') {
+    if (route === 'hub') {
       drawGameSelect(ctx, atlas, hubRecords, hubTotals)
+      return
+    }
+    if (route === 'sky') {
+      sky.render(ctx, atlas, tick)
       return
     }
     if (state.scene === 'title') {
@@ -384,10 +468,13 @@ const loop = createLoop({
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
     input.reset()
+    sky.blur()
     audio.stopBgm()
   } else {
     loop.reset()
-    if (state.scene === 'playing' && !state.muted) audio.startBgm()
+    if (route === 'adventure' && state.scene === 'playing' && !state.muted) {
+      audio.startBgm()
+    }
   }
 })
 

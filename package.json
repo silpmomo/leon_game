@@ -9,7 +9,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint src tests",
-    "assets": "python3 tools/build_hero.py && python3 tools/build_atlas.py"
+    "assets": "python3 tools/build_hero.py && python3 tools/make_dots.py && python3 tools/make_sky_dots.py && python3 tools/build_atlas.py"
   },
   "devDependencies": {
     "@types/node": "^26.2.0",

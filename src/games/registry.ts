@@ -19,6 +19,8 @@ export type GameEntry = {
   /** 카드 썸네일에 쓸 아틀라스 프레임. 없으면 이모지를 쓴다 */
   frame?: string
   emoji?: string
+  /** 썸네일 오른쪽 아래에 얹는 작은 뱃지. 같은 얼굴이라도 구분이 된다 */
+  badge?: string
 }
 
 export const GAMES: readonly GameEntry[] = [
@@ -31,12 +33,13 @@ export const GAMES: readonly GameEntry[] = [
     frame: 'face',
   },
   {
-    id: 'game2',
-    title: '두 번째 게임',
-    subtitle: '준비 중',
-    status: 'soon',
-    accent: '#5a6472',
-    emoji: '🚧',
+    id: 'sky',
+    title: '리온의 하늘전투',
+    subtitle: '횡스크롤 슈팅 · 전 10탄',
+    status: 'ready',
+    accent: '#f5a623',
+    frame: 'face',
+    badge: '⚡',
   },
 ]
 
