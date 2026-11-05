@@ -48,6 +48,15 @@ export const GAMES: readonly GameEntry[] = [
     frame: 'face',
     badge: '⚡',
   },
+  {
+    id: 'arena',
+    title: '리온의 숲속대결',
+    subtitle: '탑뷰 서바이벌 · 최후의 1인',
+    status: 'ready',
+    accent: '#7cc45a',
+    frame: 'face',
+    badge: '🌿',
+  },
 ]
 
 export function gameById(id: string): GameEntry | undefined {

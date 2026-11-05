@@ -9,8 +9,10 @@
 |---|---|---|
 | `adventure` | 리온의 대모험 | `src/game/`, `src/world/`, `src/levels/` (20탄) |
 | `sky` | 리온의 하늘전투 | `src/sky/` + `src/skyApp.ts` (10탄) — `docs/SKY.md` |
+| `arena` | 리온의 숲속대결 | `src/arena/` + `src/arenaApp.ts` (6판) — `docs/ARENA.md` |
 
-두 번째 게임(`sky`)이 이 문서대로 붙었다. 세 번째도 같은 길을 따르면 된다.
+두 번째(`sky`)·세 번째(`arena`) 게임이 이 문서대로 붙었다. 네 번째도 같은 길을 따르면 된다.
+카드는 4개까지 한 줄에 들어가므로 다섯 번째부터는 `cardRect()` 줄바꿈이 필요하다.
 
 ## 화면 흐름
 

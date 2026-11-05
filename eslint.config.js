@@ -5,7 +5,7 @@ import importPlugin from 'eslint-plugin-import'
 // storage.ts 는 디렉터리가 아니라 루트 파일이지만 window 를 만지므로 함께 막는다.
 // 순수 모듈이 이걸 import하면 node 환경 테스트가 전부 깨진다.
 const SHELL = ['./src/render', './src/ui', './src/core', './src/storage.ts']
-const PURE = ['./src/engine', './src/world', './src/game', './src/levels', './src/sky']
+const PURE = ['./src/engine', './src/world', './src/game', './src/levels', './src/sky', './src/arena']
 
 export default [
   {
